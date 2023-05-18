@@ -8,6 +8,7 @@ enum TokenType {
     DoubleQuote,
     Ident,
     Number,
+    Assign,
 }
 
 #[derive(Debug, Clone)]
@@ -35,10 +36,14 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut current_token: Option<Token> = None;
     // 遍历输入代码的每个字符
+
     for c in code.chars() {
+        println!("current char is:{} ", c);
+
         if c == ';' {
             if let Some(tok) = &current_token {
-                tokens.push(tok.clone())
+                tokens.push(tok.clone());
+                println!("tok_clone:{:?}", tok.clone());
             }
             tokens.push(Token {
                 ty: TokenType::SemiColon,
@@ -51,8 +56,8 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
                 tokens.push(tok.clone())
             }
             tokens.push(Token {
-                ty: TokenType::SemiColon,
-                value: String::from(";"),
+                ty: TokenType::Assign,
+                value: String::from("="),
             })
         } else if tokens.last().is_some() && tokens.last().unwrap().ty == TokenType::DoubleQuote {
             if let Some(tok) = &mut current_token {
@@ -65,10 +70,15 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
             }
         } else if (c >= 'A' && c <= 'z')
             || c == '_'
-            || (current_token.is_some() && current_token.clone().unwrap().ty == TokenType::Ident)
+            || (current_token.is_some()
+                && current_token.clone().unwrap().ty == TokenType::Ident
+                && c != ' ')
         {
             if let Some(tok) = &mut current_token {
-                tok.value.push(c)
+                println!("tok:{:?}", tok);
+                tok.value.push(c);
+
+                println!("tok:{:?}", tok);
             } else {
                 current_token = Some(Token {
                     ty: TokenType::Ident,
@@ -96,7 +106,7 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
 }
 
 fn main() {
-    let token = tokenize("x=2;").unwrap();
+    let token = tokenize("x = 2;").unwrap();
 
     println!("{:?}", token)
 }
