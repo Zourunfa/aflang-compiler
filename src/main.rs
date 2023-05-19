@@ -1,5 +1,7 @@
 #[derive(Debug)]
-enum Errors {}
+enum Errors {
+    CannotCreateStringWhileInOtherToken,
+}
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 enum TokenType {
@@ -9,9 +11,10 @@ enum TokenType {
     Ident,
     Number,
     Assign,
+    // Bind,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Token {
     pub ty: TokenType,
     pub value: String,
@@ -39,8 +42,17 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
 
     for c in code.chars() {
         println!("current char is:{} ", c);
-
-        if c == ';' {
+        if tokens.last().is_some() && tokens.last().unwrap().ty == TokenType::DoubleQuote {
+            if let Some(tok) = &mut current_token {
+                tok.value.push(c);
+                println!("tok_clone:{:?}", tok.clone());
+            } else {
+                current_token = Some(Token {
+                    ty: TokenType::StringLiteral,
+                    value: c.to_string(),
+                })
+            }
+        } else if c == ';' {
             if let Some(tok) = &current_token {
                 tokens.push(tok.clone());
                 println!("tok_clone:{:?}", tok.clone());
@@ -99,14 +111,87 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
                     value: String::from(c.to_string()),
                 })
             }
+        } else if c == '"' {
+            println!("7");
+            if current_token.is_some() {
+                return Err(Errors::CannotCreateStringWhileInOtherToken);
+            }
+
+            tokens.push(Token {
+                ty: TokenType::DoubleQuote,
+                value: String::from("\""),
+            })
         }
+    }
+
+    if let Some(tok) = current_token {
+        tokens.push(tok)
     }
 
     Ok(tokens)
 }
 
 fn main() {
-    let token = tokenize("x = 2;").unwrap();
+    let token = tokenize("x = 123232;").unwrap();
 
     println!("{:?}", token)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    #[test]
+    fn number_token() {
+        let tokens = tokenize("123");
+        // 用于检查 tokens 是否为 Ok 枚举值，
+        assert!(tokens.is_ok());
+
+        let tokens = tokens.unwrap();
+        assert_eq!(
+            Token {
+                ty: TokenType::Number,
+                value: String::from("123")
+            },
+            tokens[0]
+        )
+    }
+
+    #[test]
+    fn test_assign_number() {
+        let tokens = tokenize("x =  123;");
+        // 用于检查 tokens 是否为 Ok 枚举值，
+        assert!(tokens.is_ok());
+
+        let tokens = tokens.unwrap();
+        assert_eq!(
+            Token {
+                ty: TokenType::Ident,
+                value: String::from("x")
+            },
+            tokens[0]
+        );
+
+        assert_eq!(
+            Token {
+                ty: TokenType::Assign,
+                value: String::from("=")
+            },
+            tokens[1]
+        );
+        assert_eq!(
+            Token {
+                ty: TokenType::Number,
+                value: String::from("123")
+            },
+            tokens[2]
+        );
+        assert_eq!(
+            Token {
+                ty: TokenType::SemiColon,
+                value: String::from(";")
+            },
+            tokens[3]
+        );
+    }
 }
