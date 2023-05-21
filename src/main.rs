@@ -7,7 +7,8 @@ enum Errors {
 enum TokenType {
     SemiColon,
     StringLiteral,
-    DoubleQuote,
+    DoubleQuoteStart,
+    DoubleQuoteEnd,
     Ident,
     Number,
     Assign,
@@ -20,6 +21,11 @@ struct Token {
     pub value: String,
 }
 
+fn main() {
+    let token = tokenize("x = 123232;").unwrap();
+
+    println!("{:?}", token)
+}
 /**
  * tokenize 函数接受一个字符串 code 作为输入，并返回一个 Result<Vec<Token>, Errors> 类型的结果。它使用一个循环来遍历输入代码的每个字符，并根据字符的类型将其转换为一个或多个标记。
 
@@ -42,7 +48,10 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
 
     for c in code.chars() {
         println!("current char is:{} ", c);
-        if tokens.last().is_some() && tokens.last().unwrap().ty == TokenType::DoubleQuote {
+        if tokens.last().is_some()
+            && tokens.last().unwrap().ty == TokenType::DoubleQuoteStart
+            && c != '"'
+        {
             if let Some(tok) = &mut current_token {
                 tok.value.push(c);
                 println!("tok_clone:{:?}", tok.clone());
@@ -71,7 +80,8 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
                 ty: TokenType::Assign,
                 value: String::from("="),
             })
-        } else if tokens.last().is_some() && tokens.last().unwrap().ty == TokenType::DoubleQuote {
+        } else if tokens.last().is_some() && tokens.last().unwrap().ty == TokenType::DoubleQuoteEnd
+        {
             if let Some(tok) = &mut current_token {
                 tok.value.push(c)
             } else {
@@ -113,14 +123,26 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
             }
         } else if c == '"' {
             println!("7");
-            if current_token.is_some() {
+            if current_token.is_some()
+                && current_token.clone().unwrap().ty != TokenType::StringLiteral
+            {
                 return Err(Errors::CannotCreateStringWhileInOtherToken);
-            }
+            } else if current_token.is_some()
+                && current_token.clone().unwrap().ty == TokenType::StringLiteral
+            {
+                tokens.push(current_token.clone().unwrap());
+                tokens.push(Token {
+                    ty: TokenType::DoubleQuoteEnd,
+                    value: String::from("\""),
+                });
 
-            tokens.push(Token {
-                ty: TokenType::DoubleQuote,
-                value: String::from("\""),
-            })
+                current_token = None
+            } else {
+                tokens.push(Token {
+                    ty: TokenType::DoubleQuoteStart,
+                    value: String::from("\""),
+                })
+            }
         }
     }
 
@@ -131,14 +153,20 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
     Ok(tokens)
 }
 
-fn main() {
-    let token = tokenize("x = 123232;").unwrap();
-
-    println!("{:?}", token)
-}
-
 #[cfg(test)]
 mod tests {
+    // <T: Eq> 是一个泛型类型参数，用于指定 Vec 中元素的类型必须实现了 Eq trait。
+    fn eq_vecs<T: Eq>(v1: Vec<T>, v2: Vec<T>) -> bool {
+        if v1.len() != v2.len() {
+            return false;
+        }
+        for i in 0..v1.len() {
+            if v1[i] != v2[i] {
+                return false;
+            }
+        }
+        return true;
+    }
 
     use super::*;
     #[test]
@@ -148,13 +176,13 @@ mod tests {
         assert!(tokens.is_ok());
 
         let tokens = tokens.unwrap();
-        assert_eq!(
-            Token {
+        assert!(eq_vecs(
+            tokens,
+            vec![Token {
                 ty: TokenType::Number,
                 value: String::from("123")
-            },
-            tokens[0]
-        )
+            }]
+        ))
     }
 
     #[test]
@@ -164,34 +192,65 @@ mod tests {
         assert!(tokens.is_ok());
 
         let tokens = tokens.unwrap();
-        assert_eq!(
-            Token {
-                ty: TokenType::Ident,
-                value: String::from("x")
-            },
-            tokens[0]
-        );
+        assert!(eq_vecs(
+            tokens,
+            vec![
+                Token {
+                    ty: TokenType::Ident,
+                    value: String::from("x")
+                },
+                Token {
+                    ty: TokenType::Assign,
+                    value: String::from("=")
+                },
+                Token {
+                    ty: TokenType::Number,
+                    value: String::from("123")
+                },
+                Token {
+                    ty: TokenType::SemiColon,
+                    value: String::from(";")
+                }
+            ]
+        ));
+    }
 
-        assert_eq!(
-            Token {
-                ty: TokenType::Assign,
-                value: String::from("=")
-            },
-            tokens[1]
-        );
-        assert_eq!(
-            Token {
-                ty: TokenType::Number,
-                value: String::from("123")
-            },
-            tokens[2]
-        );
-        assert_eq!(
-            Token {
-                ty: TokenType::SemiColon,
-                value: String::from(";")
-            },
-            tokens[3]
-        );
+    #[test]
+    fn test_assign_string() {
+        let tokens = tokenize("x = \"af\";");
+        // 用于检查 tokens 是否为 Ok 枚举值，
+        assert!(tokens.is_ok());
+
+        let tokens = tokens.unwrap();
+        println!("{:?}", tokens);
+        assert!(eq_vecs(
+            tokens,
+            vec![
+                Token {
+                    ty: TokenType::Ident,
+                    value: String::from("x")
+                },
+                Token {
+                    ty: TokenType::Assign,
+                    value: String::from("=")
+                },
+                Token {
+                    ty: TokenType::DoubleQuoteStart,
+                    value: String::from("\"")
+                },
+                Token {
+                    ty: TokenType:: StringLiteral,
+                    value: String::from("af")
+                },
+                Token {
+                    ty: TokenType::DoubleQuoteEnd,
+                    value: String::from("\"")
+                },
+                Token {
+                    ty: TokenType::SemiColon,
+                    value: String::from(";")
+                },
+            ]
+        ));
     }
 }
