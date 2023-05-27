@@ -14,7 +14,12 @@ enum TokenType {
     Assign,
     SqBracketOpen,
     SqBracketClose,
+    CuBracketOpen,
+    CuBracketClose,
     Comma, // Bind,
+    IfKeyword,
+    InterfaceKeyword,
+    StructKeyword,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,7 +90,43 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
                 ty: TokenType::Assign,
                 value: None,
             })
-        } else if (c >= 'A' && c <= 'z' && c != '[' && c != ']')
+        } else if c == '[' {
+            if current_token.is_some() {
+                tokens.push(current_token.clone().unwrap());
+            }
+            tokens.push(Token {
+                ty: TokenType::SqBracketOpen,
+                value: None,
+            });
+            current_token = None;
+        } else if c == ']' {
+            if current_token.is_some() {
+                tokens.push(current_token.clone().unwrap());
+            }
+            tokens.push(Token {
+                ty: TokenType::SqBracketClose,
+                value: None,
+            });
+            current_token = None;
+        } else if c == '{' {
+            if current_token.is_some() {
+                tokens.push(current_token.clone().unwrap());
+            }
+            tokens.push(Token {
+                ty: TokenType::CuBracketOpen,
+                value: None,
+            });
+            current_token = None;
+        } else if c == '}' {
+            if current_token.is_some() {
+                tokens.push(current_token.clone().unwrap());
+            }
+            tokens.push(Token {
+                ty: TokenType::CuBracketClose,
+                value: None,
+            });
+            current_token = None;
+        } else if (c >= 'A' && c <= 'z' && c != '[' && c != ']' && c != '{' && c != '}')
             || c == '_'
             || (current_token.is_some()
                 && current_token.clone().unwrap().ty == TokenType::Ident
@@ -94,7 +135,31 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
             if let Some(tok) = &mut current_token {
                 println!("tok:{:?}", tok);
                 match &mut tok.value {
-                    Some(s) => s.push(c),
+                    Some(s) => {
+                        s.push(c);
+                        if s == "if" {
+                            tokens.push(Token {
+                                ty: TokenType::IfKeyword,
+                                value: None,
+                            });
+                            current_token = None;
+                            continue;
+                        } else if s == "interface" {
+                            tokens.push(Token {
+                                ty: TokenType::InterfaceKeyword,
+                                value: None,
+                            });
+                            current_token = None;
+                            continue;
+                        } else if s == "struct" {
+                            tokens.push(Token {
+                                ty: TokenType::StructKeyword,
+                                value: None,
+                            });
+                            current_token = None;
+                            continue;
+                        }
+                    }
                     None => tok.value = Some(c.to_string()),
                 }
 
@@ -123,7 +188,6 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
                 })
             }
         } else if c == '"' {
-            println!("7");
             if current_token.is_some()
                 && current_token.clone().unwrap().ty != TokenType::StringLiteral
             {
@@ -144,24 +208,6 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
                     value: None,
                 })
             }
-        } else if c == '[' {
-            if current_token.is_some() {
-                tokens.push(current_token.clone().unwrap());
-            }
-            tokens.push(Token {
-                ty: TokenType::SqBracketOpen,
-                value: None,
-            });
-            current_token = None;
-        } else if c == ']' {
-            if current_token.is_some() {
-                tokens.push(current_token.clone().unwrap());
-            }
-            tokens.push(Token {
-                ty: TokenType::SqBracketClose,
-                value: None,
-            });
-            current_token = None;
         } else if c == ',' {
             if current_token.is_some() {
                 tokens.push(current_token.clone().unwrap());
@@ -326,6 +372,100 @@ mod tests {
                 },
                 Token {
                     ty: TokenType::DoubleQuoteEnd,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::SemiColon,
+                    value: None
+                },
+            ]
+        ));
+    }
+
+    #[test]
+    fn test_slices() {
+        let tokens = tokenize("x =  [123,\"name\"];");
+        // 用于检查 tokens 是否为 Ok 枚举值，
+        assert!(tokens.is_ok());
+
+        let tokens = tokens.unwrap();
+        println!("{:?}", tokens);
+        assert!(eq_vecs(
+            tokens,
+            vec![
+                Token {
+                    ty: TokenType::Ident,
+                    value: Some(String::from("x"))
+                },
+                Token {
+                    ty: TokenType::Assign,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::SqBracketOpen,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::Number,
+                    value: Some(String::from("123"))
+                },
+                Token {
+                    ty: TokenType::Comma,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::DoubleQuoteStart,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::StringLiteral,
+                    value: Some(String::from("name"))
+                },
+                Token {
+                    ty: TokenType::DoubleQuoteEnd,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::SqBracketClose,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::SemiColon,
+                    value: None
+                },
+            ]
+        ));
+    }
+
+    #[test]
+    fn test_struct() {
+        let tokens = tokenize("x =  struct{};");
+        // 用于检查 tokens 是否为 Ok 枚举值，
+        assert!(tokens.is_ok());
+
+        let tokens = tokens.unwrap();
+        println!("{:?}", tokens);
+        assert!(eq_vecs(
+            tokens,
+            vec![
+                Token {
+                    ty: TokenType::Ident,
+                    value: Some(String::from("x"))
+                },
+                Token {
+                    ty: TokenType::Assign,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::StructKeyword,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::CuBracketOpen,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::CuBracketClose,
                     value: None
                 },
                 Token {
