@@ -20,6 +20,7 @@ enum TokenType {
     IfKeyword,
     InterfaceKeyword,
     StructKeyword,
+    ForKeyword,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,6 +155,13 @@ fn tokenize(code: &str) -> Result<Vec<Token>, Errors> {
                         } else if s == "struct" {
                             tokens.push(Token {
                                 ty: TokenType::StructKeyword,
+                                value: None,
+                            });
+                            current_token = None;
+                            continue;
+                        } else if s == "for" {
+                            tokens.push(Token {
+                                ty: TokenType::ForKeyword,
                                 value: None,
                             });
                             current_token = None;
@@ -458,6 +466,45 @@ mod tests {
                 },
                 Token {
                     ty: TokenType::StructKeyword,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::CuBracketOpen,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::CuBracketClose,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::SemiColon,
+                    value: None
+                },
+            ]
+        ));
+    }
+
+    #[test]
+    fn test_interface() {
+        let tokens = tokenize("x =  interface{};");
+        // 用于检查 tokens 是否为 Ok 枚举值，
+        assert!(tokens.is_ok());
+
+        let tokens = tokens.unwrap();
+        println!("{:?}", tokens);
+        assert!(eq_vecs(
+            tokens,
+            vec![
+                Token {
+                    ty: TokenType::Ident,
+                    value: Some(String::from("x"))
+                },
+                Token {
+                    ty: TokenType::Assign,
+                    value: None
+                },
+                Token {
+                    ty: TokenType::InterfaceKeyword,
                     value: None
                 },
                 Token {
