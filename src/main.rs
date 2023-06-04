@@ -1,7 +1,3 @@
 mod tokenizer;
-
-fn main() {}
-
-mod tokenizer;
-
+mod parser;
 fn main() {}
