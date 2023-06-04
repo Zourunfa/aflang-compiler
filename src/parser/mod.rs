@@ -21,7 +21,7 @@ pub struct Decl {
 也可能是 None。接着我们使用 as_ref() 方法将其中的 Option<&str> 类型的引用提取出来，
 这样可以避免对 Option<String> 类型的值进行所有权的转移。
  */
-fn parse(tokens: Vec<Token>) -> Result<Vec<Decl>, Errors> {
+pub fn parse(tokens: Vec<Token>) -> Result<Vec<Decl>, Errors> {
     let mut decls = vec![];
     let mut current_decl: Option<Decl> = None;
 
@@ -50,7 +50,7 @@ fn parse(tokens: Vec<Token>) -> Result<Vec<Decl>, Errors> {
         }
     }
 
-    Ok(vec![])
+    Ok(decls)
 }
 
 #[cfg(test)]
@@ -74,6 +74,7 @@ mod tests {
         return true;
     }
     // 测试解析赋值语句
+    #[test]
     fn parse_constant_assign() {
         let tokens: Vec<Token> = vec![
             Token {
