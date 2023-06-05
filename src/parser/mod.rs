@@ -1,66 +1,152 @@
+use std::usize;
+
 // Vec<Token> -> Module
 use crate::tokenizer::Errors;
 use crate::tokenizer::{Token, TokenType};
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum Expr {
-    Int(i64),
-    Nil,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Types {
+    Int,
+    Float32,
+    Float64,
+    String,
 }
 
+// Decl is everything done in Loki, anything is a declaration either with a name assigned to it or not.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Decl {
-    pub name: String,
+    pub name: Option<String>,
+    pub ty: Option<Types>,
     pub expr: Expr,
 }
 
-// (1)
-/*
-在这里，as_ref() 方法应该是将 Option<String> 类型的值转换为 Option<&str> 类型的引用，
-这里的 value 字段是一个 Option<String> 类型的值，它可能包含一个 String 类型的值，
-也可能是 None。接着我们使用 as_ref() 方法将其中的 Option<&str> 类型的引用提取出来，
-这样可以避免对 Option<String> 类型的值进行所有权的转移。
- */
-pub fn parse(tokens: Vec<Token>) -> Result<Vec<Decl>, Errors> {
-    let mut decls = vec![];
-    let mut current_decl: Option<Decl> = None;
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum Expr {
+    Int(i64),
+    If(If),
+    Bool(bool),
+    Block(Block),
+    FnCall(FnCall),
+    Str(String),
+    Nil,
+}
 
-    for (i, tok) in tokens.iter().enumerate() {
-        if tok.ty == TokenType::Ident {
-            if current_decl.is_none() {
-                current_decl = Some(Decl {
-                    // as_ref()将一个类型的引用转化为另一个类型的引用,这里是将 (1)
-                    name: tok.value.as_ref().unwrap().to_string(),
-                    expr: Expr::Nil,
-                })
-            }
-        } else if tok.ty == TokenType::AssignOp {
-            let next_tok = tokens.iter().nth(i + 1).unwrap();
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Block(Vec<Decl>);
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct If {
+    pub cond: Box<Expr>,
+    pub then_block: Box<Expr>,
+    pub else_block: Box<Option<Expr>>,
+}
 
-            if next_tok.ty == TokenType::Number {
-                // parse 将String类型转化为Number类型
-                let number: i64 = next_tok.value.as_ref().unwrap().parse().unwrap();
-                // as_mut() 方法用于将一个可变引用转换为对另一个类型的可变引用
-                current_decl.as_mut().unwrap().expr = Expr::Int(number)
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct FnCall {
+    name: String,
+    args: Vec<Expr>,
+}
+
+struct Parser {
+    tokens: Vec<Token>,
+    cur: usize,
+}
+
+impl Parser {
+    pub fn new(tokens: Vec<Token>) -> Self {
+        Parser { tokens, cur: 0 }
+    }
+
+    pub fn next_expr(&mut self) -> Result<Expr, Errors> {
+        // 10; [x]
+        // ""; [x]
+        // fncall(arg1, arg2);
+        // if true {} else {};
+        // struct {}
+        // interface {}
+        // union {}
+        // enum {}
+        // fn(arg1: t1): void {}
+        if self.cur_token().ty == TokenType::Number {
+            let num: i64 = self.cur_token().value.as_ref().unwrap().parse().unwrap();
+            self.cur += 1;
+            return Ok(Expr::Int(num));
+        } else if self.cur_token().ty == TokenType::DoubleQuoteStart {
+            let string = self.tokens[self.cur + 1]
+                .value
+                .as_ref()
+                .unwrap()
+                .to_string();
+            self.cur += 2;
+            return Ok(Expr::Str(string));
+        } else if self.cur_token().ty == TokenType::TrueKeyword {
+            self.cur += 1;
+            return Ok(Expr::Bool(true));
+        } else if self.cur_token().ty == TokenType::FalseKeyword {
+            self.cur += 1;
+            return Ok(Expr::Bool(false));
+        } else if self.cur_token().ty == TokenType::Ident
+            && self.tokens[self.cur + 1].ty == TokenType::ParenOpen
+        {
+            // function call
+            //TODO: handle commas :))
+            let name_ident = self.cur_token().clone();
+            let mut args: Vec<Expr> = Vec::default();
+
+            self.cur += 2; // stand on first argument
+            if self.cur_token().ty == TokenType::ParenClose {
+                // we dont have any args.
+                return Ok(Expr::FnCall(FnCall {
+                    name: name_ident.value.as_ref().unwrap().to_string(),
+                    args,
+                }));
             }
-        } else if tok.ty == TokenType::SemiColon {
-            if let Some(decl) = current_decl.clone() {
-                decls.push(decl.clone())
+            // we have args
+            // fn(fn(12), 12, 12)
+            loop {
+                if self.cur_token().ty == TokenType::ParenClose {
+                    self.cur += 1;
+                    break;
+                }
+                if self.cur_token().ty == TokenType::Comma {
+                    self.cur += 1;
+                }
+
+                if self.cur_token().ty == TokenType::ParenOpen {
+                    self.cur += 1;
+                }
+                args.push(self.next_expr().unwrap());
             }
+            return Ok(Expr::FnCall(FnCall {
+                name: name_ident.value.as_ref().unwrap().to_string(),
+                args,
+            }));
+        } else {
+            return Err(Errors::ParseErr("cannot create expr".to_string()));
         }
     }
 
-    Ok(decls)
+    fn cur_token(&self) -> &Token {
+        return &self.tokens[self.cur];
+    }
+
+    pub fn parse(&mut self) -> Result<Vec<Decl>, Errors> {
+        let mut decls = vec![];
+
+        Ok(decls)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::parse;
+    use super::Block;
     use super::Decl;
     use super::Expr;
+    use super::FnCall;
+    use super::If;
+    use super::Parser;
     use super::Token;
     use super::TokenType;
-
+    use super::Types;
     fn eq_vecs<T: Eq + std::fmt::Debug>(v1: Vec<T>, v2: Vec<T>) -> bool {
         if v1.len() != v2.len() {
             assert_eq!(v1.len(), v2.len());
@@ -73,16 +159,42 @@ mod tests {
         }
         return true;
     }
-    // 测试解析赋值语句
     #[test]
-    fn parse_constant_assign() {
+    fn next_expr_bool() {
+        let tokens: Vec<Token> = vec![Token {
+            ty: TokenType::TrueKeyword,
+            value: None,
+        }];
+
+        let mut parser = Parser::new(tokens);
+        assert_eq!(Expr::Bool(true), parser.next_expr().unwrap());
+    }
+    #[test]
+    fn next_expr_fn_with_args_nested() {
+        // fn_name(fn_name2(fn_name3(12)), 12, 12)
         let tokens: Vec<Token> = vec![
             Token {
                 ty: TokenType::Ident,
-                value: Some(String::from("x")),
+                value: Some(String::from("fn_name")),
             },
             Token {
-                ty: TokenType::AssignOp,
+                ty: TokenType::ParenOpen,
+                value: None,
+            },
+            Token {
+                ty: TokenType::Ident,
+                value: Some(String::from("fn_name2")),
+            },
+            Token {
+                ty: TokenType::ParenOpen,
+                value: None,
+            },
+            Token {
+                ty: TokenType::Ident,
+                value: Some("fn_name3".to_string()),
+            },
+            Token {
+                ty: TokenType::ParenOpen,
                 value: None,
             },
             Token {
@@ -90,18 +202,135 @@ mod tests {
                 value: Some(String::from("12")),
             },
             Token {
-                ty: TokenType::SemiColon,
+                ty: TokenType::ParenClose,
+                value: None,
+            },
+            Token {
+                ty: TokenType::ParenClose,
+                value: None,
+            },
+            Token {
+                ty: TokenType::Comma,
+                value: None,
+            },
+            Token {
+                ty: TokenType::Number,
+                value: Some("12".to_string()),
+            },
+            Token {
+                ty: TokenType::Comma,
+                value: None,
+            },
+            Token {
+                ty: TokenType::Number,
+                value: Some("12".to_string()),
+            },
+            Token {
+                ty: TokenType::ParenClose,
                 value: None,
             },
         ];
 
-        let decls = parse(tokens).unwrap();
-        eq_vecs(
-            decls,
-            vec![Decl {
-                name: "x".to_string(),
-                expr: Expr::Int(12),
-            }],
+        let mut parser = Parser::new(tokens);
+        assert_eq!(
+            Expr::FnCall(FnCall {
+                name: "fn_name".to_string(),
+                args: vec![
+                    Expr::FnCall(FnCall {
+                        name: "fn_name2".to_string(),
+                        args: vec![Expr::FnCall(FnCall {
+                            name: "fn_name3".to_string(),
+                            args: vec![Expr::Int(12)],
+                        })],
+                    }),
+                    Expr::Int(12),
+                    Expr::Int(12),
+                ],
+            }),
+            parser.next_expr().unwrap()
         );
     }
+
+    // #[test]
+    // fn parse_constant_assign() {
+
+    //     let tokens: Vec<Token> = vec![
+    //         Token {
+    //             ty: TokenType::Ident,
+    //             value: Some(String::from("x"))
+    //         },
+    //         Token {
+    //             ty: TokenType::AssignOp,
+    //             value: None,
+    //         },
+    //         Token {
+    //             ty: TokenType::Number,
+    //             value: Some(String::from("12")),
+    //         },
+    //         Token {
+    //             ty: TokenType::SemiColon,
+    //             value: None,
+    //         }
+    //     ];
+
+    //     let decls = parse(tokens).unwrap();
+
+    //     eq_vecs(decls, vec![Decl{
+    //         name: Some("x".to_string()),
+    //         ty: Some(Types::Int),
+    //         expr: Expr::Int(12),
+    //     }]);
+
+    // }
+
+    // // #[test]
+    // fn parse_assign_if() {
+    //     let tokens: Vec<Token> = vec![
+    //         Token {
+    //             ty: TokenType::Ident,
+    //             value: Some(String::from("x"))
+    //         },
+    //         Token {
+    //             ty: TokenType::AssignOp,
+    //             value: None,
+    //         },
+    //         Token {
+    //             ty: TokenType::IfKeyword,
+    //             value: None
+    //         },
+    //         Token {
+    //             ty: TokenType::TrueKeyword,
+    //             value: None,
+    //         },
+    //         Token {
+    //             ty: TokenType::CuBracketOpen,
+    //             value: None,
+    //         },
+    //         Token {
+    //             ty: TokenType::TrueKeyword,
+    //             value: None,
+    //         },
+    //         Token {
+    //             ty: TokenType::CuBracketClose,
+    //             value: None,
+    //         },
+
+    //     ];
+
+    //     let decls = parse(tokens).unwrap();
+
+    //     eq_vecs(decls, vec![Decl{
+    //         name: Some("x".to_string()),
+    //         ty: None,
+    //         expr: Expr::If(If {
+    //             cond: Box::new(Expr::Bool(true)),
+    //             then_block: Box::new(Expr::Block(Block(vec![Decl{
+    //                 name: None,
+    //                 ty: None,
+    //                 expr: Expr::Bool(true)
+    //             }]))),
+    //             else_block: Box::new(None),
+    //         }),
+    //     }]);
+    // }
 }
