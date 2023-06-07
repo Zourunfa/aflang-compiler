@@ -270,7 +270,7 @@ mod tests {
         ];
 
         let mut parser = Parser::new(tokens);
-          assert_eq!(
+        assert_eq!(
             Expr::FnCall(FnCall {
                 name: "fn_name".to_string(),
                 args: vec![Expr::Int(12), Expr::Int(12),],
