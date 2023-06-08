@@ -93,7 +93,7 @@ impl Parser {
                     args,
                 }));
             }
-            // we have args
+
             // fn(fn(12), 12, 12)
             loop {
                 if self.cur_token().ty == TokenType::ParenClose {
