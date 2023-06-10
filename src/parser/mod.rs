@@ -1,4 +1,4 @@
-use std::usize; //无符号类型整数
+use std::{default, usize}; //无符号类型整数
 
 // Vec<Token> -> Module
 use crate::tokenizer::Errors;
@@ -29,7 +29,31 @@ pub enum Expr {
     Block(Block),
     FnCall(FnCall),
     Str(String),
+    // Type(Type),
+    Op(Op),
     Nil,
+}
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Op {
+    lhs: Box<Expr>,
+    rhs: Box<Expr>,
+    op: String,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum Type {
+    Struct,
+    Union,
+    Enum,
+    Int,
+    Str,
+}
+
+struct FnType {}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Struct {
+    fields: Vec<(String, String)>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -44,11 +68,11 @@ pub struct If {
 #[derive(Debug, Clone, Eq, PartialEq)]
 // 解析一个函数，name是函数名,args是函数的参数
 pub struct FnCall {
-    name: String,
-    args: Vec<Expr>,
+    pub name: String,
+    pub args: Vec<Expr>,
 }
 
-struct Parser {
+pub struct Parser {
     tokens: Vec<Token>,
     cur: usize,
 }
@@ -58,64 +82,92 @@ impl Parser {
         Parser { tokens, cur: 0 }
     }
 
-    pub fn next_expr(&mut self) -> Result<Expr, Errors> {
-        if self.cur_token().ty == TokenType::Number {
-            let num: i64 = self.cur_token().value.as_ref().unwrap().parse().unwrap();
-            self.cur += 1;
-            return Ok(Expr::Int(num));
-        } else if self.cur_token().ty == TokenType::DoubleQuoteStart {
-            let string = self.tokens[self.cur + 1]
-                .value
-                .as_ref()
-                .unwrap()
-                .to_string();
-            self.cur += 2;
-            return Ok(Expr::Str(string));
-        } else if self.cur_token().ty == TokenType::TrueKeyword {
-            self.cur += 1;
-            return Ok(Expr::Bool(true));
-        } else if self.cur_token().ty == TokenType::FalseKeyword {
-            self.cur += 1;
-            return Ok(Expr::Bool(false));
-        } else if self.cur_token().ty == TokenType::Ident
-            && self.tokens[self.cur + 1].ty == TokenType::ParenOpen
-        {
-            // function call
-            //TODO: handle commas :))
-            let name_ident = self.cur_token().clone();
-            let mut args: Vec<Expr> = Vec::default();
+    pub fn get_expr(&mut self) -> Result<Expr, Errors> {
+        let mut expr_stack: Vec<Expr> = vec![];
 
-            self.cur += 2; // stand on first argument
-            if self.cur_token().ty == TokenType::ParenClose {
-                // we dont have any args.
-                return Ok(Expr::FnCall(FnCall {
+        'outer: loop {
+            if self.cur >= self.tokens.len() {
+                break;
+            }
+            println!("{:?}", self.cur_token());
+
+            if self.cur_token().ty == TokenType::Number {
+                let num: i64 = self.cur_token().value.as_ref().unwrap().parse().unwrap();
+                println!("num: {:?}", num);
+                self.cur += 1;
+                expr_stack.push(Expr::Int(num));
+            } else if self.cur_token().ty == TokenType::DoubleQuoteStart {
+                self.cur += 1;
+                let string = self.tokens[self.cur].value.as_ref().unwrap().to_string();
+                self.cur += 2;
+                expr_stack.push(Expr::Str(string));
+            } else if self.cur_token().ty == TokenType::TrueKeyword {
+                self.cur += 1;
+                expr_stack.push(Expr::Bool(true));
+            } else if self.cur_token().ty == TokenType::FalseKeyword {
+                self.cur += 1;
+                expr_stack.push(Expr::Bool(false));
+            } else if self.cur_token().ty == TokenType::Ident
+                && self.tokens[self.cur + 1].ty == TokenType::ParenOpen
+            {
+                let name_ident = self.cur_token().clone();
+                println!("resolving {}", name_ident.value.as_ref().unwrap());
+                expr_stack.push(Expr::FnCall(FnCall {
                     name: name_ident.value.as_ref().unwrap().to_string(),
-                    args,
+                    args: Vec::default(),
                 }));
-            }
 
-            // fn(fn(12), 12, 12)
-            loop {
-                if self.cur_token().ty == TokenType::ParenClose {
-                    self.cur += 1;
-                    break;
-                }
-                if self.cur_token().ty == TokenType::Comma {
-                    self.cur += 1;
-                }
+                self.cur += 2; // move cursor to first argument
+                if self.cur_token().ty != TokenType::ParenClose {
+                    loop {
+                        if self.cur_token().ty == TokenType::ParenClose {
+                            self.cur += 1; // move over the paren close token
+                            break;
+                        }
+                        if self.cur_token().ty == TokenType::Comma {
+                            self.cur += 1; // move over the comma token
+                        }
 
-                if self.cur_token().ty == TokenType::ParenOpen {
-                    self.cur += 1;
+                        if self.cur_token().ty == TokenType::ParenOpen {
+                            self.cur += 1;
+                        }
+                        continue 'outer;
+                    }
                 }
-                // 递归
-                args.push(self.next_expr().unwrap());
+            } else if self.cur_token().ty == TokenType::ParenClose {
+                let mut args: Vec<Expr> = vec![];
+                loop {
+                    if let Some(expr) = expr_stack.pop() {
+                        match expr {
+                            Expr::FnCall(mut fn_call) => {
+                                if fn_call.args.len() > 0 {
+                                    args.push(Expr::FnCall(fn_call));
+                                    continue;
+                                }
+                                let mut args_clone = args.clone();
+                                args_clone.reverse();
+                                fn_call.args = args_clone;
+                                println!("fn_call --:{:?}", fn_call);
+                                expr_stack.push(Expr::FnCall(fn_call));
+
+                                break;
+                            }
+                            _ => args.push(expr),
+                        }
+                    }
+                }
+                self.cur += 1;
+            } else if self.cur_token().ty == TokenType::Comma {
+                self.cur += 1;
+            } else {
+                println!("{:?}", self.cur_token());
+                return Err(Errors::ParseErr("cannot create expr".to_string()));
             }
-            return Ok(Expr::FnCall(FnCall {
-                name: name_ident.value.as_ref().unwrap().to_string(),
-                args,
-            }));
+        }
+        if expr_stack.len() > 0 {
+            return Ok(expr_stack[expr_stack.len() - 1].clone());
         } else {
-            return Err(Errors::ParseErr("cannot create expr".to_string()));
+            return Err(Errors::ParseErr("No expr constructed".to_string()));
         }
     }
 
@@ -132,15 +184,8 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use super::Block;
-    use super::Decl;
-    use super::Expr;
-    use super::FnCall;
-    use super::If;
-    use super::Parser;
-    use super::Token;
-    use super::TokenType;
-    use super::Types;
+
+    use super::*;
     fn eq_vecs<T: Eq + std::fmt::Debug>(v1: Vec<T>, v2: Vec<T>) -> bool {
         if v1.len() != v2.len() {
             assert_eq!(v1.len(), v2.len());
@@ -153,18 +198,50 @@ mod tests {
         }
         return true;
     }
+
+    // #[test]
+    // fn parse_op() {
+    //     let tokens: Vec<Token> = vec![
+    //         Token {
+    //             ty: TokenType::FalseKeyword,
+    //             value: None,
+    //         },
+    //         Token {
+    //             ty: TokenType::AssignOp,
+    //             value: None,
+    //         },
+    //         Token {
+    //             ty: TokenType::AssignOp,
+    //             value: None,
+    //         },
+    //         Token {
+    //             ty: TokenType::TrueKeyword,
+    //             value: None,
+    //         },
+    //     ];
+
+    //     let mut parser = Parser::new(tokens);
+    //     assert_eq!(
+    //         Expr::Op(Op {
+    //             lhs: Box::new(Expr::Bool(false)),
+    //             rhs: Box::new(Expr::Bool(true)),
+    //             op: "=".to_string(),
+    //         }),
+    //         parser.get_expr().unwrap()
+    //     );
+    // }
     #[test]
-    fn next_expr_bool() {
+    fn parse_bool() {
         let tokens: Vec<Token> = vec![Token {
             ty: TokenType::TrueKeyword,
             value: None,
         }];
 
         let mut parser = Parser::new(tokens);
-        assert_eq!(Expr::Bool(true), parser.next_expr().unwrap());
+        assert_eq!(Expr::Bool(true), parser.get_expr().unwrap());
     }
     #[test]
-    fn next_expr_fn_with_args_nested() {
+    fn parse_fn_with_args_nested() {
         // fn_name(fn_name2(fn_name3(12)), 12, 12)
         let tokens: Vec<Token> = vec![
             Token {
@@ -241,11 +318,11 @@ mod tests {
                     Expr::Int(12),
                 ],
             }),
-            parser.next_expr().unwrap()
+            parser.get_expr().unwrap()
         );
     }
     #[test]
-    fn next_expr_fn_with_args_flat() {
+    fn parse_fn_with_args_flat() {
         let tokens: Vec<Token> = vec![
             Token {
                 ty: TokenType::Ident,
@@ -275,11 +352,11 @@ mod tests {
                 name: "fn_name".to_string(),
                 args: vec![Expr::Int(12), Expr::Int(12),],
             }),
-            parser.next_expr().unwrap()
+            parser.get_expr().unwrap()
         );
     }
     #[test]
-    fn next_expr_fn_call() {
+    fn parse_fn_call() {
         let tokens: Vec<Token> = vec![
             Token {
                 ty: TokenType::Ident,
@@ -301,12 +378,12 @@ mod tests {
                 name: "fn_name".to_string(),
                 args: Vec::default(),
             }),
-            parser.next_expr().unwrap()
+            parser.get_expr().unwrap()
         );
     }
 
     #[test]
-    fn next_expr_string() {
+    fn parse_string() {
         let tokens: Vec<Token> = vec![
             Token {
                 ty: TokenType::DoubleQuoteStart,
@@ -325,18 +402,18 @@ mod tests {
         let mut parser = Parser::new(tokens);
         assert_eq!(
             Expr::Str("amirreza".to_string()),
-            parser.next_expr().unwrap()
+            parser.get_expr().unwrap()
         );
     }
     #[test]
-    fn next_expr_number() {
+    fn parse_number() {
         let tokens: Vec<Token> = vec![Token {
             ty: TokenType::Number,
             value: Some(String::from("12")),
         }];
 
         let mut parser = Parser::new(tokens);
-        assert_eq!(Expr::Int(12), parser.next_expr().unwrap());
+        assert_eq!(Expr::Int(12), parser.get_expr().unwrap());
     }
 
     // // #[test]
