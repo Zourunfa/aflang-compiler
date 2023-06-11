@@ -4,19 +4,19 @@ use std::{default, usize}; //无符号类型整数
 use crate::tokenizer::Errors;
 use crate::tokenizer::{Token, TokenType};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Types {
-    Int,
-    Float32,
-    Float64,
-    String,
-}
+// #[derive(Clone, Debug, Eq, PartialEq)]
+// pub enum Types {
+//     Int,
+//     Float32,
+//     Float64,
+//     String,
+// }
 
 // Decl is everything done in Loki, anything is a declaration either with a name assigned to it or not.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Decl {
     pub name: Option<String>,
-    pub ty: Option<Types>,
+    pub ty: Option<Type>,
     pub expr: Expr,
 }
 
@@ -28,6 +28,7 @@ pub enum Expr {
     Bool(bool),
     Block(Block),
     FnCall(FnCall),
+    Ref(String),
     Str(String),
     // Type(Type),
     Op(Op),
@@ -82,7 +83,7 @@ impl Parser {
         Parser { tokens, cur: 0 }
     }
 
-    pub fn get_expr(&mut self) -> Result<Expr, Errors> {
+    pub fn parse_next_expr(&mut self) -> Result<Expr, Errors> {
         let mut expr_stack: Vec<Expr> = vec![];
 
         'outer: loop {
@@ -96,7 +97,11 @@ impl Parser {
                 println!("num: {:?}", num);
                 self.cur += 1;
                 expr_stack.push(Expr::Int(num));
-            } else if self.cur_token().ty == TokenType::DoubleQuoteStart {
+            }else if self.cur_token().ty == TokenType::Ident&& self.tokens[self.cur+1].ty == TokenType::SemiColon{
+              expr_stack.push(Expr::Ref(self.cur_token().value.as_ref().unwrap().to_string()));
+              self.cur +=2;
+
+            }else if self.cur_token().ty == TokenType::DoubleQuoteStart {
                 self.cur += 1;
                 let string = self.tokens[self.cur].value.as_ref().unwrap().to_string();
                 self.cur += 2;
@@ -227,7 +232,7 @@ mod tests {
     //             rhs: Box::new(Expr::Bool(true)),
     //             op: "=".to_string(),
     //         }),
-    //         parser.get_expr().unwrap()
+    //         parser.parse_next_expr().unwrap()
     //     );
     // }
     #[test]
@@ -238,7 +243,7 @@ mod tests {
         }];
 
         let mut parser = Parser::new(tokens);
-        assert_eq!(Expr::Bool(true), parser.get_expr().unwrap());
+        assert_eq!(Expr::Bool(true), parser.parse_next_expr().unwrap());
     }
     #[test]
     fn parse_fn_with_args_nested() {
@@ -318,7 +323,7 @@ mod tests {
                     Expr::Int(12),
                 ],
             }),
-            parser.get_expr().unwrap()
+            parser.parse_next_expr().unwrap()
         );
     }
     #[test]
@@ -352,7 +357,7 @@ mod tests {
                 name: "fn_name".to_string(),
                 args: vec![Expr::Int(12), Expr::Int(12),],
             }),
-            parser.get_expr().unwrap()
+            parser.parse_next_expr().unwrap()
         );
     }
     #[test]
@@ -378,7 +383,7 @@ mod tests {
                 name: "fn_name".to_string(),
                 args: Vec::default(),
             }),
-            parser.get_expr().unwrap()
+            parser.parse_next_expr().unwrap()
         );
     }
 
@@ -402,7 +407,7 @@ mod tests {
         let mut parser = Parser::new(tokens);
         assert_eq!(
             Expr::Str("amirreza".to_string()),
-            parser.get_expr().unwrap()
+            parser.parse_next_expr().unwrap()
         );
     }
     #[test]
@@ -413,7 +418,7 @@ mod tests {
         }];
 
         let mut parser = Parser::new(tokens);
-        assert_eq!(Expr::Int(12), parser.get_expr().unwrap());
+        assert_eq!(Expr::Int(12), parser.parse_next_expr().unwrap());
     }
 
     // // #[test]
