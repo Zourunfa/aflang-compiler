@@ -85,6 +85,7 @@ impl Parser {
     pub fn get_expr(&mut self) -> Result<Expr, Errors> {
         let mut expr_stack: Vec<Expr> = vec![];
 
+        // outer是continue重新循环的起始入口
         'outer: loop {
             if self.cur >= self.tokens.len() {
                 break;
