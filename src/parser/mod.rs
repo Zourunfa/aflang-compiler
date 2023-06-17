@@ -417,54 +417,5 @@ mod tests {
         assert_eq!(Expr::Int(12), parser.get_expr().unwrap());
     }
 
-    // // #[test]
-    // fn parse_assign_if() {
-    //     let tokens: Vec<Token> = vec![
-    //         Token {
-    //             ty: TokenType::Ident,
-    //             value: Some(String::from("x"))
-    //         },
-    //         Token {
-    //             ty: TokenType::AssignOp,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::IfKeyword,
-    //             value: None
-    //         },
-    //         Token {
-    //             ty: TokenType::TrueKeyword,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::CuBracketOpen,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::TrueKeyword,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::CuBracketClose,
-    //             value: None,
-    //         },
-
-    //     ];
-
-    //     let decls = parse(tokens).unwrap();
-
-    //     eq_vecs(decls, vec![Decl{
-    //         name: Some("x".to_string()),
-    //         ty: None,
-    //         expr: Expr::If(If {
-    //             cond: Box::new(Expr::Bool(true)),
-    //             then_block: Box::new(Expr::Block(Block(vec![Decl{
-    //                 name: None,
-    //                 ty: None,
-    //                 expr: Expr::Bool(true)
-    //             }]))),
-    //             else_block: Box::new(None),
-    //         }),
-    //     }]);
-    // }
+ 
 }
