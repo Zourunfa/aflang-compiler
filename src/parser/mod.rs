@@ -200,37 +200,7 @@ mod tests {
         return true;
     }
 
-    // #[test]
-    // fn parse_op() {
-    //     let tokens: Vec<Token> = vec![
-    //         Token {
-    //             ty: TokenType::FalseKeyword,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::AssignOp,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::AssignOp,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::TrueKeyword,
-    //             value: None,
-    //         },
-    //     ];
 
-    //     let mut parser = Parser::new(tokens);
-    //     assert_eq!(
-    //         Expr::Op(Op {
-    //             lhs: Box::new(Expr::Bool(false)),
-    //             rhs: Box::new(Expr::Bool(true)),
-    //             op: "=".to_string(),
-    //         }),
-    //         parser.get_expr().unwrap()
-    //     );
-    // }
     #[test]
     fn parse_bool() {
         let tokens: Vec<Token> = vec![Token {
