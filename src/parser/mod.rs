@@ -97,11 +97,14 @@ impl Parser {
                 println!("num: {:?}", num);
                 self.cur += 1;
                 expr_stack.push(Expr::Int(num));
-            }else if self.cur_token().ty == TokenType::Ident&& self.tokens[self.cur+1].ty == TokenType::SemiColon{
-              expr_stack.push(Expr::Ref(self.cur_token().value.as_ref().unwrap().to_string()));
-              self.cur +=2;
-
-            }else if self.cur_token().ty == TokenType::DoubleQuoteStart {
+            } else if self.cur_token().ty == TokenType::Ident
+                && self.tokens[self.cur + 1].ty == TokenType::SemiColon
+            {
+                expr_stack.push(Expr::Ref(
+                    self.cur_token().value.as_ref().unwrap().to_string(),
+                ));
+                self.cur += 2;
+            } else if self.cur_token().ty == TokenType::DoubleQuoteStart {
                 self.cur += 1;
                 let string = self.tokens[self.cur].value.as_ref().unwrap().to_string();
                 self.cur += 2;
@@ -189,7 +192,6 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     fn eq_vecs<T: Eq + std::fmt::Debug>(v1: Vec<T>, v2: Vec<T>) -> bool {
         if v1.len() != v2.len() {
@@ -204,37 +206,6 @@ mod tests {
         return true;
     }
 
-    // #[test]
-    // fn parse_op() {
-    //     let tokens: Vec<Token> = vec![
-    //         Token {
-    //             ty: TokenType::FalseKeyword,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::AssignOp,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::AssignOp,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::TrueKeyword,
-    //             value: None,
-    //         },
-    //     ];
-
-    //     let mut parser = Parser::new(tokens);
-    //     assert_eq!(
-    //         Expr::Op(Op {
-    //             lhs: Box::new(Expr::Bool(false)),
-    //             rhs: Box::new(Expr::Bool(true)),
-    //             op: "=".to_string(),
-    //         }),
-    //         parser.parse_next_expr().unwrap()
-    //     );
-    // }
     #[test]
     fn parse_bool() {
         let tokens: Vec<Token> = vec![Token {
@@ -411,6 +382,25 @@ mod tests {
         );
     }
     #[test]
+    fn parse_variable_ref() {
+        let tokens: Vec<Token> = vec![
+            Token {
+                ty: TokenType::Ident,
+                value: Some(String::from("x")),
+            },
+            Token {
+                ty: TokenType::SemiColon,
+                value: None,
+            },
+        ];
+
+        let mut parser = Parser::new(tokens);
+        assert_eq!(
+            Expr::Ref("x".to_string()),
+            parser.parse_next_expr().unwrap()
+        );
+    }
+    #[test]
     fn parse_number() {
         let tokens: Vec<Token> = vec![Token {
             ty: TokenType::Number,
@@ -420,55 +410,4 @@ mod tests {
         let mut parser = Parser::new(tokens);
         assert_eq!(Expr::Int(12), parser.parse_next_expr().unwrap());
     }
-
-    // // #[test]
-    // fn parse_assign_if() {
-    //     let tokens: Vec<Token> = vec![
-    //         Token {
-    //             ty: TokenType::Ident,
-    //             value: Some(String::from("x"))
-    //         },
-    //         Token {
-    //             ty: TokenType::AssignOp,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::IfKeyword,
-    //             value: None
-    //         },
-    //         Token {
-    //             ty: TokenType::TrueKeyword,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::CuBracketOpen,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::TrueKeyword,
-    //             value: None,
-    //         },
-    //         Token {
-    //             ty: TokenType::CuBracketClose,
-    //             value: None,
-    //         },
-
-    //     ];
-
-    //     let decls = parse(tokens).unwrap();
-
-    //     eq_vecs(decls, vec![Decl{
-    //         name: Some("x".to_string()),
-    //         ty: None,
-    //         expr: Expr::If(If {
-    //             cond: Box::new(Expr::Bool(true)),
-    //             then_block: Box::new(Expr::Block(Block(vec![Decl{
-    //                 name: None,
-    //                 ty: None,
-    //                 expr: Expr::Bool(true)
-    //             }]))),
-    //             else_block: Box::new(None),
-    //         }),
-    //     }]);
-    // }
 }
