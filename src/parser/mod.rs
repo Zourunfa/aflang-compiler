@@ -86,6 +86,7 @@ impl Parser {
     pub fn parse_next_expr(&mut self) -> Result<Expr, Errors> {
         let mut expr_stack: Vec<Expr> = vec![];
 
+        // outer是continue重新循环的起始入口
         'outer: loop {
             if self.cur >= self.tokens.len() {
                 break;
@@ -410,4 +411,9 @@ mod tests {
         let mut parser = Parser::new(tokens);
         assert_eq!(Expr::Int(12), parser.parse_next_expr().unwrap());
     }
+<<<<<<< HEAD
+=======
+
+ 
+>>>>>>> ac499d423212e721cde11116314f3902563e1cd3
 }
