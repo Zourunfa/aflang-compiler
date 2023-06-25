@@ -411,9 +411,4 @@ mod tests {
         let mut parser = Parser::new(tokens);
         assert_eq!(Expr::Int(12), parser.parse_next_expr().unwrap());
     }
-<<<<<<< HEAD
-=======
-
- 
->>>>>>> ac499d423212e721cde11116314f3902563e1cd3
 }
