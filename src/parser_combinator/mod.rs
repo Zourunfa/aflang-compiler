@@ -1,32 +1,13 @@
-// pub enum Expr {
-//     Int(isize),
-//     Float(f64),
-//     Str(String),
-//     Block,
-//     Array,
-//     Slice,
-//     Fn,
-//     If,
-// }
-
-// pub enum Stmt {
-//     Expr,
-//     Decl,
-//     If,
-//     For,
-//     FnCall
-// }
-
 #[derive(Debug, PartialEq)]
 enum ParseObj {
     Char(char),
     Uint(usize),
     Int(isize),
-    Float(f64),
     Str(String),
     Keyword(String),
     Bool(bool),
     List(Vec<ParseObj>),
+    Float(f64),
     Empty,
 }
 
@@ -57,6 +38,15 @@ impl std::error::Error for ParseErr {}
 
 type ParseResult = Result<(String, ParseObj), ParseErr>;
 
+fn zero_or_one(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        if let Ok((remains, parsed)) = parser(input.clone()) {
+            return Ok((remains, ParseObj::Char('-')));
+        }
+        return Ok((input, ParseObj::Empty));
+    };
+}
+
 fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
     return move |input: String| {
         for parser in parsers.iter() {
@@ -67,26 +57,6 @@ fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> Pa
             }
         }
         return Err(ParseErr::new("any_of err"));
-    };
-}
-
-fn zero_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
-    return move |mut input: String| {
-        let mut result = Vec::new();
-        while let Ok((remains, parsed)) = parser(input.clone()) {
-            input = remains;
-            result.push(parsed);
-        }
-        return Ok((input.clone(), ParseObj::List(result)));
-    };
-}
-
-fn zero_or_one(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
-    return move |mut input: String| {
-        if let Ok((remains, parsed)) = parser(input.clone()) {
-            return Ok((remains, ParseObj::Char('-')));
-        }
-        return Ok((input, ParseObj::Empty));
     };
 }
 
@@ -111,15 +81,16 @@ fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> Par
         return Ok((input.clone(), ParseObj::List(result)));
     };
 }
-
-fn parse_char<'a>(c: char) -> impl Fn(String) -> ParseResult {
+fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
     return move |input: String| {
         if input.len() < 1 {
-            return ParseResult::Err(ParseErr::new("expected at least on char"));
+            ParseResult::Err(ParseErr::new("expected a char"));
         }
+
         if input.chars().nth(0).unwrap() == c.clone() {
             return ParseResult::Ok((input[1..].to_string(), ParseObj::Char(c)));
         }
+
         return ParseResult::Err(ParseErr::new(&format!(
             "expected {} saw {}",
             c,
@@ -127,50 +98,12 @@ fn parse_char<'a>(c: char) -> impl Fn(String) -> ParseResult {
         )));
     };
 }
-
-fn keyword(word: String) -> impl Fn(String) -> ParseResult {
-    return move |mut input: String| {
-        let word_chars = word.chars();
-        for c in word_chars {
-            match parse_char(c)(input) {
-                Ok((remains, _)) => input = remains,
-                Err(err) => return Err(err),
-            }
-        }
-        return Ok((input, ParseObj::Keyword(word.clone())));
-    };
-}
-
-fn any_whitespace<'a>() -> impl Fn(String) -> ParseResult {
-    let sp = parse_char(' ');
-    let tab = parse_char('\t');
-    let newline = parse_char('\n');
-    return any_of(vec![sp, tab, newline]);
-}
-
-fn whitespace<'a>() -> impl Fn(String) -> ParseResult {
-    return zero_or_more(any_whitespace());
-}
-
-fn digit(input: String) -> ParseResult {
-    return any_of(vec![
-        parse_char('0'),
-        parse_char('1'),
-        parse_char('2'),
-        parse_char('3'),
-        parse_char('4'),
-        parse_char('5'),
-        parse_char('6'),
-        parse_char('7'),
-        parse_char('8'),
-        parse_char('9'),
-    ])(input);
-}
-
 fn uint(input: String) -> ParseResult {
+    println!("uint_uint:{:?}", one_or_more(digit)(input.clone()));
     match one_or_more(digit)(input) {
         Ok((remains, ParseObj::List(_digits))) => {
             let mut number = String::new();
+            println!("one_or_more_digits: {:?}", _digits);
             for d in _digits {
                 match d {
                     ParseObj::Char(c) => {
@@ -179,7 +112,9 @@ fn uint(input: String) -> ParseResult {
                     _ => unreachable!(),
                 }
             }
+            // 对于数字解析，可以使用 parse() 方法将字符串转换为对应的数值类型，例如 i32、f64
             let number: usize = number.parse().unwrap();
+            println!("one_or_more_number: {:?}", number);
             Ok((remains, ParseObj::Uint(number)))
         }
         Err(err) => return Err(err),
@@ -187,6 +122,7 @@ fn uint(input: String) -> ParseResult {
     }
 }
 
+// 解析负数
 fn int(input: String) -> ParseResult {
     let sign = zero_or_one(parse_char('-'));
     match sign(input.clone()) {
@@ -206,17 +142,44 @@ fn int(input: String) -> ParseResult {
     }
 }
 
+fn digit(input: String) -> ParseResult {
+    return any_of(vec![
+        parse_char('0'),
+        parse_char('1'),
+        parse_char('2'),
+        parse_char('3'),
+        parse_char('4'),
+        parse_char('5'),
+        parse_char('6'),
+        parse_char('7'),
+        parse_char('8'),
+        parse_char('9'),
+    ])(input);
+}
+
+fn keyword(word: String) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        for c in word.chars() {
+            match parse_char(c)(input) {
+                Ok((remains, _)) => input = remains,
+                Err(err) => return Err(err),
+            }
+        }
+
+        return Ok((input, ParseObj::Keyword(word.clone())));
+    };
+}
+
 fn bool(input: String) -> ParseResult {
     let _true = keyword("true".to_string());
     let _false = keyword("false".to_string());
-    let (remains, bool_parsed) = any_of(vec![_true, _false])(input)?;
-    if let ParseObj::Keyword(b) = bool_parsed {
-        return Ok((remains, ParseObj::Bool(b == "true")));
+    let (reamins, parsed_bool) = any_of(vec![_true, _false])(input).unwrap();
+    if let ParseObj::Keyword(key) = parsed_bool {
+        return Ok((reamins, ParseObj::Bool(key == "true")));
     } else {
         unreachable!()
     }
 }
-
 fn float(input: String) -> ParseResult {
     if let (remains, ParseObj::Int(int_part)) = int(input)? {
         println!("floats1: {:?},{:?}", remains, int_part);
@@ -239,18 +202,10 @@ fn float(input: String) -> ParseResult {
 }
 
 #[test]
-fn test_parse_single_digit() {
+fn test_parse_sigle_digits() {
     assert_eq!(
         digit("1AB".to_string()),
-        ParseResult::Ok(("AB".to_string(), ParseObj::Char('1'),))
-    );
-}
-
-#[test]
-fn test_parse_float() {
-    assert_eq!(
-        float("4.2".to_string()),
-        ParseResult::Ok(("".to_string(), ParseObj::Float(4.2)))
+        ParseResult::Ok(("AB".to_string(), ParseObj::Char('1')))
     );
 }
 
@@ -265,7 +220,6 @@ fn test_parse_int() {
         ParseResult::Ok(("AB".to_string(), ParseObj::Int(1234)))
     );
 }
-
 #[test]
 fn test_parse_uint() {
     assert_eq!(
@@ -273,7 +227,6 @@ fn test_parse_uint() {
         ParseResult::Ok(("AB".to_string(), ParseObj::Uint(1234)))
     );
 }
-
 #[test]
 fn test_parse_keyword() {
     assert_eq!(
@@ -291,5 +244,13 @@ fn test_parse_bool() {
     assert_eq!(
         bool("falsesomeshitaftertrue".to_string()),
         ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(false),))
+    );
+}
+
+#[test]
+fn test_parse_float() {
+    assert_eq!(
+        float("4.2".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Float(4.2)))
     );
 }
