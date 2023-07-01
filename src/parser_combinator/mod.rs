@@ -38,25 +38,30 @@ impl std::error::Error for ParseErr {}
 
 type ParseResult = Result<(String, ParseObj), ParseErr>;
 
-fn zero_or_one(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
-    return move |mut input: String| {
-        if let Ok((remains, parsed)) = parser(input.clone()) {
-            return Ok((remains, ParseObj::Char('-')));
+fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
+    return move |input: String| {
+        if input.len() < 1 {
+            return ParseResult::Err(ParseErr::new("expected at least one character"));
         }
-        return Ok((input, ParseObj::Empty));
+
+        if input.chars().nth(0).unwrap() == c {
+            return ParseResult::Ok((input[1..].to_string(), ParseObj::Char(c)));
+        }
+
+        return ParseResult::Err(ParseErr::new("parse_char error"));
     };
 }
 
-fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
+fn any_of(parses: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
     return move |input: String| {
-        for parser in parsers.iter() {
+        for parser in parses.iter() {
             let res = parser(input.clone());
             match res {
-                Ok((remaining, parsed)) => return Ok((remaining, parsed)),
+                Ok((remains, parsed)) => return Ok((remains, parsed)),
                 Err(err) => continue,
             }
         }
-        return Err(ParseErr::new("any_of err"));
+        return Err(ParseErr::new("any_of error"));
     };
 }
 
@@ -81,54 +86,40 @@ fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> Par
         return Ok((input.clone(), ParseObj::List(result)));
     };
 }
-fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
-    return move |input: String| {
-        if input.len() < 1 {
-            ParseResult::Err(ParseErr::new("expected a char"));
-        }
 
-        if input.chars().nth(0).unwrap() == c.clone() {
-            return ParseResult::Ok((input[1..].to_string(), ParseObj::Char(c)));
-        }
-
-        return ParseResult::Err(ParseErr::new(&format!(
-            "expected {} saw {}",
-            c,
-            input.chars().nth(0).unwrap()
-        )));
-    };
-}
 fn uint(input: String) -> ParseResult {
-    println!("uint_uint:{:?}", one_or_more(digit)(input.clone()));
     match one_or_more(digit)(input) {
         Ok((remains, ParseObj::List(_digits))) => {
             let mut number = String::new();
-            println!("one_or_more_digits: {:?}", _digits);
-            for d in _digits {
-                match d {
-                    ParseObj::Char(c) => {
-                        number.push(c);
-                    }
+            for digit in _digits {
+                match digit {
+                    ParseObj::Char(c) => number.push(c),
                     _ => unreachable!(),
                 }
             }
-            // 对于数字解析，可以使用 parse() 方法将字符串转换为对应的数值类型，例如 i32、f64
-            let number: usize = number.parse().unwrap();
-            println!("one_or_more_number: {:?}", number);
-            Ok((remains, ParseObj::Uint(number)))
+            let _number: usize = number.parse().unwrap();
+            Ok((remains, ParseObj::Uint(_number)))
         }
         Err(err) => return Err(err),
         _ => unreachable!(),
     }
 }
 
-// 解析负数
+fn zero_or_one(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        if let Ok((remains, parsed)) = parser(input.clone()) {
+            return Ok((remains, ParseObj::Char('-')));
+        }
+        return Ok((input, ParseObj::Empty));
+    };
+}
 fn int(input: String) -> ParseResult {
     let sign = zero_or_one(parse_char('-'));
+
     match sign(input.clone()) {
         Ok((input, ParseObj::Char('-'))) => match uint(input) {
             Ok((remains, ParseObj::Uint(num))) => {
-                return Ok((remains, ParseObj::Int(-1 * num as isize)))
+                return Ok((remains, ParseObj::Int(-1 * num as isize)));
             }
             _ => Err(ParseErr::new("Err")),
         },
@@ -157,29 +148,6 @@ fn digit(input: String) -> ParseResult {
     ])(input);
 }
 
-fn keyword(word: String) -> impl Fn(String) -> ParseResult {
-    return move |mut input: String| {
-        for c in word.chars() {
-            match parse_char(c)(input) {
-                Ok((remains, _)) => input = remains,
-                Err(err) => return Err(err),
-            }
-        }
-
-        return Ok((input, ParseObj::Keyword(word.clone())));
-    };
-}
-
-fn bool(input: String) -> ParseResult {
-    let _true = keyword("true".to_string());
-    let _false = keyword("false".to_string());
-    let (reamins, parsed_bool) = any_of(vec![_true, _false])(input).unwrap();
-    if let ParseObj::Keyword(key) = parsed_bool {
-        return Ok((reamins, ParseObj::Bool(key == "true")));
-    } else {
-        unreachable!()
-    }
-}
 fn float(input: String) -> ParseResult {
     if let (remains, ParseObj::Int(int_part)) = int(input)? {
         println!("floats1: {:?},{:?}", remains, int_part);
@@ -200,12 +168,19 @@ fn float(input: String) -> ParseResult {
         return Err(ParseErr::new("some"));
     }
 }
-
 #[test]
 fn test_parse_sigle_digits() {
     assert_eq!(
         digit("1AB".to_string()),
         ParseResult::Ok(("AB".to_string(), ParseObj::Char('1')))
+    );
+}
+
+#[test]
+fn test_parse_uint() {
+    assert_eq!(
+        uint("1234AB".to_string()),
+        ParseResult::Ok(("AB".to_string(), ParseObj::Uint(1234)))
     );
 }
 
@@ -218,32 +193,6 @@ fn test_parse_int() {
     assert_eq!(
         int("1234AB".to_string()),
         ParseResult::Ok(("AB".to_string(), ParseObj::Int(1234)))
-    );
-}
-#[test]
-fn test_parse_uint() {
-    assert_eq!(
-        uint("1234AB".to_string()),
-        ParseResult::Ok(("AB".to_string(), ParseObj::Uint(1234)))
-    );
-}
-#[test]
-fn test_parse_keyword() {
-    assert_eq!(
-        keyword("struct".to_string())("struct name".to_string()),
-        ParseResult::Ok((" name".to_string(), ParseObj::Keyword("struct".to_string())))
-    );
-}
-
-#[test]
-fn test_parse_bool() {
-    assert_eq!(
-        bool("truesomeshitaftertrue".to_string()),
-        ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(true)))
-    );
-    assert_eq!(
-        bool("falsesomeshitaftertrue".to_string()),
-        ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(false),))
     );
 }
 
