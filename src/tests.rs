@@ -9,7 +9,7 @@ fn nested_fn_call() {
     let mut parser = parser::Parser::new(tokens);
 
     assert_eq!(
-        parser.get_expr().unwrap(),
+        parser.parse_next_expr().unwrap(),
         Expr::FnCall(FnCall {
             name: "fn1".to_string(),
             args: vec![

@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 enum ParseObj {
     Char(char),
     Uint(usize),
@@ -7,6 +7,8 @@ enum ParseObj {
     Keyword(String),
     Bool(bool),
     List(Vec<ParseObj>),
+    Float(f64),
+    Empty,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -18,10 +20,12 @@ impl ParseErr {
     pub fn wrap(msg: &str, inner: ParseErr) -> Self {
         return Self {
             msg: format!("{}: {}", msg, inner),
-        }
+        };
     }
     pub fn new(msg: &str) -> Self {
-        return Self { msg: String::from(msg) };
+        return Self {
+            msg: String::from(msg),
+        };
     }
 }
 
@@ -34,69 +38,142 @@ impl std::error::Error for ParseErr {}
 
 type ParseResult = Result<(String, ParseObj), ParseErr>;
 
+fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
+    return move |input: String| {
+        if input.len() < 1 {
+            return ParseResult::Err(ParseErr::new("expeted a char"));
+        }
 
+        if input.chars().nth(0).unwrap() == c.clone() {
+            return ParseResult::Ok((input[1..].to_string(), ParseObj::Char(c)));
+        }
 
-
-
-// 'a 生命周期的作用是指明输入闭包的输入参数 input 的生命周期，
-// 并且要求返回的闭包的生命周期和输入闭包的生命周期相同。
-
-fn parse_char<'a>(c: char) -> impl Fn(String) -> ParseResult {
-  return move |input: String| {
-      if input.len() < 1 {
-          return ParseResult::Err(ParseErr::new("expected at least on char"));
-      }
-      if input.chars().nth(0).unwrap() == c.clone() {
-          return ParseResult::Ok((input[1..].to_string(), ParseObj::Char(c)));
-      }
-      return ParseResult::Err(ParseErr::new(
-          &format!("expected {} saw {}", c, input.chars().nth(0).unwrap()),
-      ));
-  };
+        return ParseResult::Err(ParseErr::new("has a parse char err"));
+    };
 }
 
+fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
+    return move |input: String| {
+        for parser in parsers.iter() {
+            let res = parser(input.clone());
 
-/*
-这段代码中使用input.clone()的目的是为了在每次迭代中对输入字符串进行复制，以保留原始的输入字符串。这样做是因为闭包中的input参数是通过移动(move)到闭包中获取所有权的，而在每次迭代中需要对它进行多次使用。
-
-Rust中，闭包会捕获其环境中的变量，这些变量在闭包内部使用时需要遵循所有权规则。在这种情况下，由于闭包参数是通过移动获取所有权的，所以闭包在每次迭代时会消耗该所有权，并且无法再次使用原始的input值。
-*/
-fn any_of<'a>(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
-  return move |input: String| {
-      for parser in parsers.iter() {
-          let res = parser(input.clone());
-          match res {
-              Ok((remaining, parsed)) => return Ok((remaining, parsed)),
-              Err(err) => continue,
-          }
-      }
-      return Err(ParseErr::new("any_of err"));
-  };
+            match res {
+                Ok((remains, Parsed)) => return ParseResult::Ok((remains, Parsed)),
+                Err(err) => continue,
+            }
+        }
+        return ParseResult::Err(ParseErr::new("any_of err"));
+    };
 }
 
-fn digit(input:String) ->ParseResult{
-  return any_of(vec![
-    parse_char('0'),
-    parse_char('1'),
-    parse_char('2'),
-    parse_char('3'),
-    parse_char('4'),
-    parse_char('5'),
-    parse_char('6'),
-    parse_char('7'),
-    parse_char('8'),
-    parse_char('9'),
-])(input);
+fn one_of_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        let mut res = Vec::new();
+
+        match parser(input.clone()) {
+            Ok((remains, Parsed)) => {
+                input = remains;
+                res.push(Parsed);
+            }
+            Err(err) => {
+                return Err(ParseErr::wrap("one_or_more err", err));
+            }
+        }
+
+        while let Ok((remains, parsed)) = parser(input.clone()) {
+            input = remains;
+            res.push(parsed);
+        }
+
+        return Ok((input.clone(), ParseObj::List(res)));
+    };
 }
 
+fn digit(input: String) -> ParseResult {
+    return any_of(vec![
+        parse_char('0'),
+        parse_char('1'),
+        parse_char('2'),
+        parse_char('3'),
+        parse_char('4'),
+        parse_char('5'),
+        parse_char('6'),
+        parse_char('7'),
+        parse_char('8'),
+        parse_char('9'),
+    ])(input);
+}
 
-
-
-
+fn uint(input: String) -> ParseResult {
+    match one_of_more(digit)(input) {
+        Ok((reamins, ParseObj::List(parser_vec))) => {
+            let mut number = String::new();
+            for d in parser_vec {
+                match d {
+                    ParseObj::Char(c) => {
+                        number.push(c);
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            let number: usize = number.parse().unwrap();
+            Ok((reamins, ParseObj::Uint(number)))
+        }
+        Err(err) => return Err(err),
+        _ => unreachable!(),
+    }
+}
 
 #[test]
-fn test_parse_single_digit(){
-  // 在Rust中，双引号（"）用于表示字符串字面值，而单引号（'）用于表示字符字面值。
-  assert_eq!(digit("1AB".to_string()),ParseResult::Ok(("AB".to_string(),ParseObj::Char('1'))));
-  
+fn test_parse_sigle_digits() {
+    assert_eq!(
+        digit("1AB".to_string()),
+        ParseResult::Ok(("AB".to_string(), ParseObj::Char('1')))
+    );
 }
+
+// #[test]
+// fn test_parse_int() {
+//     assert_eq!(
+//         int("-1234AB".to_string()),
+//         ParseResult::Ok(("AB".to_string(), ParseObj::Int(-1234)))
+//     );
+//     assert_eq!(
+//         int("1234AB".to_string()),
+//         ParseResult::Ok(("AB".to_string(), ParseObj::Int(1234)))
+//     );
+// }
+#[test]
+fn test_parse_uint() {
+    assert_eq!(
+        uint("1234AB".to_string()),
+        ParseResult::Ok(("AB".to_string(), ParseObj::Uint(1234)))
+    );
+}
+// #[test]
+// fn test_parse_keyword() {
+//     assert_eq!(
+//         keyword("struct".to_string())("struct name".to_string()),
+//         ParseResult::Ok((" name".to_string(), ParseObj::Keyword("struct".to_string())))
+//     );
+// }
+
+// #[test]
+// fn test_parse_bool() {
+//     assert_eq!(
+//         bool("truesomeshitaftertrue".to_string()),
+//         ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(true)))
+//     );
+//     assert_eq!(
+//         bool("falsesomeshitaftertrue".to_string()),
+//         ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(false),))
+//     );
+// }
+
+// #[test]
+// fn test_parse_float() {
+//     assert_eq!(
+//         float("4.2".to_string()),
+//         ParseResult::Ok(("".to_string(), ParseObj::Float(4.2)))
+//     );
+// }
