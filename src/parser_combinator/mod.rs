@@ -89,6 +89,15 @@ fn one_of_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> Par
     };
 }
 
+fn one_or_zero(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        if let Ok((remains, parsed)) = parser(input.clone()) {
+            return Ok((remains, ParseObj::Char('-')));
+        }
+        return Ok((input, ParseObj::Empty));
+    };
+}
+
 fn digit(input: String) -> ParseResult {
     return any_of(vec![
         parse_char('0'),
@@ -124,6 +133,26 @@ fn uint(input: String) -> ParseResult {
     }
 }
 
+fn int(input: String) -> ParseResult {
+    let sign = one_or_zero(parse_char('-'));
+
+    match sign(input.clone()) {
+        Ok((input, ParseObj::Char('-'))) => match uint(input) {
+            Ok((remains, ParseObj::Uint(number))) => {
+                return Ok((remains, ParseObj::Int(-1 * number as isize)))
+            }
+            _ => Err(ParseErr::new("uint err")),
+        },
+        Ok((input, ParseObj::Empty)) => match uint(input) {
+            Ok((remains, ParseObj::Uint(number))) => {
+                return Ok((remains, ParseObj::Int(number as isize)))
+            }
+            _ => Err(ParseErr::new("uint err")),
+        },
+        _ => Err(ParseErr::new("uint err")),
+    }
+}
+
 #[test]
 fn test_parse_sigle_digits() {
     assert_eq!(
@@ -132,22 +161,23 @@ fn test_parse_sigle_digits() {
     );
 }
 
-// #[test]
-// fn test_parse_int() {
-//     assert_eq!(
-//         int("-1234AB".to_string()),
-//         ParseResult::Ok(("AB".to_string(), ParseObj::Int(-1234)))
-//     );
-//     assert_eq!(
-//         int("1234AB".to_string()),
-//         ParseResult::Ok(("AB".to_string(), ParseObj::Int(1234)))
-//     );
-// }
 #[test]
 fn test_parse_uint() {
     assert_eq!(
         uint("1234AB".to_string()),
         ParseResult::Ok(("AB".to_string(), ParseObj::Uint(1234)))
+    );
+}
+
+#[test]
+fn test_parse_int() {
+    assert_eq!(
+        int("-1234AB".to_string()),
+        ParseResult::Ok(("AB".to_string(), ParseObj::Int(-1234)))
+    );
+    assert_eq!(
+        int("1234AB".to_string()),
+        ParseResult::Ok(("AB".to_string(), ParseObj::Int(1234)))
     );
 }
 // #[test]
