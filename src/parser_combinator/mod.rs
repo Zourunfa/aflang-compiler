@@ -153,6 +153,21 @@ fn int(input: String) -> ParseResult {
     }
 }
 
+fn keyword(word: String) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        for c in word.chars() {
+            match parse_char(c)(input) {
+                Ok((remains, _)) => input = remains,
+                Err(err) => return Err(err),
+            }
+        }
+        /* 在 Rust 中，闭包会通过引用或值来捕获它们的环境。当闭包通过引用捕获一个值时，它会借用该值而不获取所有权。但是当闭包通过值捕获一个值时，它会获取该值的所有权并将其移动到闭包中。
+
+        在这种情况下，闭包通过值捕获了一个名为 word 的变量，这意味着它获取了存储在 word 中的 String 值的所有权。但是，String 类型没有实现 Copy trait，这意味着它不能被复制，只能被移动。*/
+        return Ok((input, ParseObj::Keyword(word.clone())));
+    };
+}
+
 #[test]
 fn test_parse_sigle_digits() {
     assert_eq!(
@@ -180,13 +195,13 @@ fn test_parse_int() {
         ParseResult::Ok(("AB".to_string(), ParseObj::Int(1234)))
     );
 }
-// #[test]
-// fn test_parse_keyword() {
-//     assert_eq!(
-//         keyword("struct".to_string())("struct name".to_string()),
-//         ParseResult::Ok((" name".to_string(), ParseObj::Keyword("struct".to_string())))
-//     );
-// }
+#[test]
+fn test_parse_keyword() {
+    assert_eq!(
+        keyword("struct".to_string())("struct name".to_string()),
+        ParseResult::Ok((" name".to_string(), ParseObj::Keyword("struct".to_string())))
+    );
+}
 
 // #[test]
 // fn test_parse_bool() {
