@@ -9,6 +9,7 @@ enum ParseObj {
     List(Vec<ParseObj>),
     Float(f64),
     Empty,
+    Ident(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -52,7 +53,13 @@ fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
     };
 }
 
+fn parse_chars(chars: String) -> impl Fn(String) -> ParseResult {
+    let parsers = chars.chars().map(|c: char| parse_char(c)).collect();
+    return any_of(parsers);
+}
+
 fn any_of(parses: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
+    println!("len of parsers created {}", parses.len());
     return move |input: String| {
         for parser in parses.iter() {
             let res = parser(input.clone());
@@ -134,18 +141,27 @@ fn int(input: String) -> ParseResult {
 }
 
 fn digit(input: String) -> ParseResult {
-    return any_of(vec![
-        parse_char('0'),
-        parse_char('1'),
-        parse_char('2'),
-        parse_char('3'),
-        parse_char('4'),
-        parse_char('5'),
-        parse_char('6'),
-        parse_char('7'),
-        parse_char('8'),
-        parse_char('9'),
-    ])(input);
+    return parse_chars("0123456789".to_string())(input);
+}
+
+fn ident(input: String) -> ParseResult {
+    match one_or_more(parse_chars(
+        "abcdefghijklmnopqrstuvwxzABCDEFGHIJKLMNOPQRSTUVWXZ_".to_string(),
+    ))(input)
+    {
+        Ok((remains, ParseObj::List(str_lists))) => {
+            let mut name = String::new();
+            for po in str_lists.iter() {
+                match po {
+                    ParseObj::Char(c) => name.push(c.clone()),
+                    _ => return Err(ParseErr::new("ident should be valid")),
+                }
+            }
+            return Ok((remains, ParseObj::Ident((name))));
+        }
+        Ok(_) => return Err(ParseErr::new("idents should be valid")),
+        Err(err) => return Err(ParseErr::new("ident err")),
+    }
 }
 
 fn float(input: String) -> ParseResult {
@@ -201,5 +217,17 @@ fn test_parse_float() {
     assert_eq!(
         float("4.2".to_string()),
         ParseResult::Ok(("".to_string(), ParseObj::Float(4.2)))
+    );
+}
+
+#[test]
+fn test_parse_ident() {
+    assert_eq!(
+        ident("name".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Ident("name".to_string())))
+    );
+    assert_eq!(
+        ident("name_str".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Ident("name_str".to_string()),))
     );
 }
