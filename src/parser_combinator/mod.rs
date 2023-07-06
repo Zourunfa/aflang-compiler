@@ -113,7 +113,7 @@ fn uint(input: String) -> ParseResult {
 }
 
 fn zero_or_one(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
-    return move |mut input: String| {
+    return move |input: String| {
         if let Ok((remains, parsed)) = parser(input.clone()) {
             return Ok((remains, ParseObj::Char('-')));
         }
@@ -157,7 +157,7 @@ fn ident(input: String) -> ParseResult {
                     _ => return Err(ParseErr::new("ident should be valid")),
                 }
             }
-            return Ok((remains, ParseObj::Ident((name))));
+            return Ok((remains, ParseObj::Ident(name)));
         }
         Ok(_) => return Err(ParseErr::new("idents should be valid")),
         Err(err) => return Err(ParseErr::new("ident err")),
@@ -184,6 +184,39 @@ fn float(input: String) -> ParseResult {
         return Err(ParseErr::new("some"));
     }
 }
+
+fn keyword(word: String) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        let word_chars = word.chars();
+        for c in word_chars {
+            match parse_char(c)(input) {
+                Ok((remains, _)) => input = remains,
+                Err(err) => return Err(err),
+            }
+        }
+        return Ok((input, ParseObj::Keyword(word.clone())));
+    };
+}
+
+fn bool(input: String) -> ParseResult {
+    let _true = keyword("true".to_string());
+    let _false = keyword("false".to_string());
+
+    let (remains, bool_parsed) = any_of(vec![_true, _false])(input).unwrap();
+
+    if let ParseObj::Keyword(key) = bool_parsed {
+        return Ok((remains, ParseObj::Bool(key == "true")));
+    } else {
+        unreachable!()
+    }
+}
+
+fn expr(input: String) -> ParseResult {
+    let parsers: Vec<fn(String) -> Result<(String, ParseObj), ParseErr>> =
+        vec![float, uint, int, bool, ident];
+    return any_of(parsers)(input);
+}
+
 #[test]
 fn test_parse_sigle_digits() {
     assert_eq!(
@@ -229,5 +262,44 @@ fn test_parse_ident() {
     assert_eq!(
         ident("name_str".to_string()),
         ParseResult::Ok(("".to_string(), ParseObj::Ident("name_str".to_string()),))
+    );
+}
+
+#[test]
+fn test_parse_bool() {
+    assert_eq!(
+        bool("truesomeshitaftertrue".to_string()),
+        ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(true)))
+    );
+    assert_eq!(
+        bool("falsesomeshitaftertrue".to_string()),
+        ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(false),))
+    );
+}
+#[test]
+fn test_parse_expr() {
+    assert_eq!(
+        expr("true".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Bool(true)))
+    );
+    assert_eq!(
+        expr("false".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Bool(false)))
+    );
+    assert_eq!(
+        expr("12".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Uint(12)))
+    );
+    assert_eq!(
+        expr("-12".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Int(-12)))
+    );
+    assert_eq!(
+        expr("12.2".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Float(12.2)))
+    );
+    assert_eq!(
+        expr("-12.2".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Float(-12.2)))
     );
 }
