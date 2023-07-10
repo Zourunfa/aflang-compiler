@@ -1,4 +1,4 @@
-
+use nom::bytes::complete::escaped;
 
 #[derive(Debug, PartialEq)]
 enum ParseObj {
@@ -86,6 +86,23 @@ fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> Par
             result.push(parsed);
         }
         return Ok((input.clone(), ParseObj::List(result)));
+    };
+}
+
+fn any() -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        if input.len() < 1 {
+            return ParseResult::Err(ParseErr::Unexpected(
+                "any".to_string(),
+                "nothing".to_string(),
+                0,
+            ));
+        }
+
+        return ParseResult::Ok((
+            input[1..].to_string(),
+            ParseObj::Char(input.chars().nth(0).unwrap()),
+        ));
     };
 }
 
@@ -194,10 +211,31 @@ fn sequence(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> 
     };
 }
 
-// fn decl(input: String) -> ParseResult {
-//     // ident\s*=\s*expr;
+fn string(input: String) -> ParseResult {
+    let (remains, _) = parse_char('"')(input).unwrap();
+    let mut end: usize = 0;
+    println!("string remains: {:?}", remains);
 
-// }
+    // enumerate： 迭代元组序列
+    for (idx, c) in remains.chars().enumerate() {
+        if c == '"' {
+            if remains.chars().nth(idx - 1).is_some() {
+                if remains.chars().nth(idx - 1).unwrap() != '\\' {
+                    end = idx
+                }
+            }
+        }
+    }
+
+    if end != 0 {
+        return Ok((
+            remains[end + 1..].to_string(),
+            ParseObj::Str(remains[..end].to_string()),
+        ));
+    } else {
+        return Err(ParseErr::Unknown("cannot find end of string".to_string()));
+    }
+}
 
 fn uint(input: String) -> ParseResult {
     match one_or_more(digit())(input) {
@@ -285,23 +323,25 @@ fn expr(input: String) -> ParseResult {
     return any_of(parsers)(input);
 }
 
-
 fn decl(mut input: String) -> ParseResult {
-  let (remains,obj) = ident(input)?;
-  let mut identifier = "".to_string();
-
-
-  
-  match obj {
-      ParseObj::Ident(i) => identifier = i,
-      _ => return Err(ParseErr::Unexpected("ident".to_string(), format!("{:?}", obj), 0))
-  }
-
-  let (remains,_) = whitespace()(remains)?;
-  let (remains,_) =  parse_char('=')(remains)?;
-  let (remains,_) = whitespace()(remains)?;
-  let (remains,e) = expr(remains)?;
-  return  Ok((remains,ParseObj::Decl(identifier, Box::new(e)));
+    // ident\s*=\s*expr;
+    let (remains, obj) = ident(input)?;
+    let mut identifier = "".to_string();
+    match obj {
+        ParseObj::Ident(i) => identifier = i,
+        _ => {
+            return Err(ParseErr::Unexpected(
+                "ident".to_string(),
+                format!("{:?}", obj),
+                0,
+            ))
+        }
+    }
+    let (remains, _) = whitespace()(remains)?;
+    let (remains, _) = parse_char('=')(remains)?;
+    let (remains, _) = whitespace()(remains)?;
+    let (remains, e) = expr(remains)?;
+    return Ok((remains, ParseObj::Decl(identifier, Box::new(e))));
 }
 
 #[test]
@@ -433,4 +473,11 @@ fn test_parse_decl_uint() {
     } else {
         assert!(false);
     }
+}
+#[test]
+fn test_parse_string() {
+    assert_eq!(
+        string("\"amirreza\"".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Str("amirreza".to_string())))
+    );
 }
