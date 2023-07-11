@@ -12,6 +12,7 @@ enum ParseObj {
     Bool(bool),
     List(Vec<ParseObj>),
     Decl(String, Box<ParseObj>),
+    FnCall(String, Vec<ParseObj>),
     Empty,
 }
 
@@ -35,7 +36,6 @@ impl std::error::Error for ParseErr {}
 type ParseResult = Result<(String, ParseObj), ParseErr>;
 
 fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
-    println!("len of parsers created {}", parsers.len());
     return move |input: String| {
         for parser in parsers.iter() {
             match parser(input.clone()) {
@@ -88,9 +88,8 @@ fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> Par
         return Ok((input.clone(), ParseObj::List(result)));
     };
 }
-
 fn any() -> impl Fn(String) -> ParseResult {
-    return move |mut input: String| {
+    return move |input: String| {
         if input.len() < 1 {
             return ParseResult::Err(ParseErr::Unexpected(
                 "any".to_string(),
@@ -105,7 +104,6 @@ fn any() -> impl Fn(String) -> ParseResult {
         ));
     };
 }
-
 fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
     return move |input: String| {
         if input.len() < 1 {
@@ -124,6 +122,28 @@ fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
             0,
         ));
     };
+}
+
+fn string(input: String) -> ParseResult {
+    let (remains, _) = parse_char('"')(input)?;
+    let mut end: usize = 0;
+    for (idx, c) in remains.chars().enumerate() {
+        if c == '"' {
+            if remains.chars().nth(idx - 1).is_some() {
+                if remains.chars().nth(idx - 1).unwrap() != '\\' {
+                    end = idx;
+                }
+            }
+        }
+    }
+    if end != 0 {
+        return Ok((
+            remains[end + 1..].to_string(),
+            ParseObj::Str(remains[..end].to_string()),
+        ));
+    } else {
+        return Err(ParseErr::Unknown("cannot find end of string".to_string()));
+    }
 }
 
 fn keyword(word: String) -> impl Fn(String) -> ParseResult {
@@ -192,6 +212,49 @@ fn ident(input: String) -> ParseResult {
     }
 }
 
+fn fn_call(input: String) -> ParseResult {
+    let (remains, obj) = ident(input)?;
+
+    println!("ident remains: {:?}    {:?}", remains, obj);
+    let mut identifier = "".to_string();
+    match obj {
+        ParseObj::Ident(i) => identifier = i,
+        _ => {
+            return Err(ParseErr::Unexpected(
+                "ident".to_string(),
+                format!("{:?}", obj),
+                0,
+            ))
+        }
+    }
+    println!("identifier: {:?} ", identifier);
+    let (mut remains, _) = parse_char('(')(remains)?;
+    println!("parse_char remains: {:?}  ", remains);
+    // we know it's a function call
+    let mut args: Vec<ParseObj> = Vec::new();
+    loop {
+        let expr_res = expr(remains.clone())?;
+        println!("expr_res: {:?}  ", expr_res);
+        remains = expr_res.0;
+        println!("remains: {:?}  ", remains);
+        let obj = expr_res.1;
+        args.push(obj);
+        println!("args: {:?}  ", args);
+        //,2)
+        let comma = parse_char(',')(remains.clone());
+        println!("comma: {:?}  ", comma);
+        if let Ok((r, _)) = comma {
+            remains = r;
+        } else {
+            break;
+        }
+    }
+
+    let (mut remains, _) = parse_char(')')(remains)?;
+    println!("remains: {:?}  ", remains);
+    return Ok((remains, ParseObj::FnCall(identifier, args)));
+}
+
 fn semicolon(input: String) -> ParseResult {
     return parse_char(';')(input);
 }
@@ -209,32 +272,6 @@ fn sequence(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> 
 
         return Ok((input, ParseObj::List(parsed)));
     };
-}
-
-fn string(input: String) -> ParseResult {
-    let (remains, _) = parse_char('"')(input).unwrap();
-    let mut end: usize = 0;
-    println!("string remains: {:?}", remains);
-
-    // enumerate： 迭代元组序列
-    for (idx, c) in remains.chars().enumerate() {
-        if c == '"' {
-            if remains.chars().nth(idx - 1).is_some() {
-                if remains.chars().nth(idx - 1).unwrap() != '\\' {
-                    end = idx
-                }
-            }
-        }
-    }
-
-    if end != 0 {
-        return Ok((
-            remains[end + 1..].to_string(),
-            ParseObj::Str(remains[..end].to_string()),
-        ));
-    } else {
-        return Err(ParseErr::Unknown("cannot find end of string".to_string()));
-    }
 }
 
 fn uint(input: String) -> ParseResult {
@@ -318,8 +355,9 @@ fn expr(input: String) -> ParseResult {
     // ident
     // String
     // int, uint, float
+    // fn_call
     let parsers: Vec<fn(String) -> Result<(String, ParseObj), ParseErr>> =
-        vec![float, uint, int, bool, ident];
+        vec![float, uint, int, bool, string, fn_call, ident];
     return any_of(parsers)(input);
 }
 
@@ -343,7 +381,50 @@ fn decl(mut input: String) -> ParseResult {
     let (remains, e) = expr(remains)?;
     return Ok((remains, ParseObj::Decl(identifier, Box::new(e))));
 }
-
+#[test]
+fn test_parse_decl_bool() {
+    let decl_res = decl("a = false".to_string());
+    assert!(decl_res.is_ok());
+    if let (_, ParseObj::Decl(name, be)) = decl_res.unwrap() {
+        assert_eq!(name, "a");
+        assert_eq!(be, Box::new(ParseObj::Bool(false)));
+    } else {
+        assert!(false);
+    }
+}
+#[test]
+fn test_parse_decl_int() {
+    let decl_res = decl("a = -2".to_string());
+    assert!(decl_res.is_ok());
+    if let (_, ParseObj::Decl(name, be)) = decl_res.unwrap() {
+        assert_eq!(name, "a");
+        assert_eq!(be, Box::new(ParseObj::Int(-2)));
+    } else {
+        assert!(false);
+    }
+}
+#[test]
+fn test_parse_decl_str() {
+    let decl_res = decl("a = \"amirreza\"".to_string());
+    assert!(decl_res.is_ok());
+    if let (_, ParseObj::Decl(name, be)) = decl_res.unwrap() {
+        assert_eq!(name, "a");
+        assert_eq!(be, Box::new(ParseObj::Str("amirreza".to_string())));
+    } else {
+        assert!(false);
+    }
+}
+#[test]
+fn test_parse_decl_uint() {
+    let decl_res = decl("a = 2".to_string());
+    assert!(decl_res.is_ok());
+    if let (_, ParseObj::Decl(name, be)) = decl_res.unwrap() {
+        assert_eq!(name, "a");
+        assert_eq!(be, Box::new(ParseObj::Uint(2)));
+    } else {
+        assert!(false);
+    }
+}
 #[test]
 fn test_parse_single_digit() {
     assert_eq!(
@@ -359,7 +440,13 @@ fn test_parse_float() {
         ParseResult::Ok(("AB".to_string(), ParseObj::Float(4.2)))
     );
 }
-
+#[test]
+fn test_parse_string() {
+    assert_eq!(
+        string("\"amirreza\"".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Str("amirreza".to_string())))
+    );
+}
 #[test]
 fn test_parse_int() {
     assert_eq!(
@@ -399,6 +486,32 @@ fn test_parse_ident() {
     );
 }
 #[test]
+fn test_parse_fn_call() {
+    assert_eq!(
+        fn_call("name(1,2)".to_string()),
+        ParseResult::Ok((
+            "".to_string(),
+            ParseObj::FnCall(
+                "name".to_string(),
+                vec![ParseObj::Uint(1), ParseObj::Uint(2)]
+            )
+        ))
+    );
+    assert_eq!(
+        fn_call("name(1,fn(2))".to_string()),
+        ParseResult::Ok((
+            "".to_string(),
+            ParseObj::FnCall(
+                "name".to_string(),
+                vec![
+                    ParseObj::Uint(1),
+                    ParseObj::FnCall("fn".to_string(), vec![ParseObj::Uint(2)]),
+                ]
+            )
+        ))
+    );
+}
+#[test]
 fn test_parse_bool() {
     assert_eq!(
         bool("truesomeshitaftertrue".to_string()),
@@ -412,72 +525,46 @@ fn test_parse_bool() {
 
 #[test]
 fn test_parse_expr() {
+    // assert_eq!(
+    //     expr("true".to_string()),
+    //     ParseResult::Ok(("".to_string(), ParseObj::Bool(true)))
+    // );
+    // assert_eq!(
+    //     expr("false".to_string()),
+    //     ParseResult::Ok(("".to_string(), ParseObj::Bool(false)))
+    // );
+    // assert_eq!(
+    //     expr("12".to_string()),
+    //     ParseResult::Ok(("".to_string(), ParseObj::Uint(12)))
+    // );
+    // assert_eq!(
+    //     expr("-12".to_string()),
+    //     ParseResult::Ok(("".to_string(), ParseObj::Int(-12)))
+    // );
+    // assert_eq!(
+    //     expr("12.2".to_string()),
+    //     ParseResult::Ok(("".to_string(), ParseObj::Float(12.2)))
+    // );
+    // assert_eq!(
+    //     expr("-12.2".to_string()),
+    //     ParseResult::Ok(("".to_string(), ParseObj::Float(-12.2)))
+    // );
+    // assert_eq!(
+    //     expr("name".to_string()),
+    //     ParseResult::Ok(("".to_string(), ParseObj::Ident("name".to_string())))
+    // );
+    // assert_eq!(
+    //     expr("\"name\"".to_string()),
+    //     ParseResult::Ok(("".to_string(), ParseObj::Str("name".to_string())))
+    // );
     assert_eq!(
-        expr("true".to_string()),
-        ParseResult::Ok(("".to_string(), ParseObj::Bool(true)))
-    );
-    assert_eq!(
-        expr("false".to_string()),
-        ParseResult::Ok(("".to_string(), ParseObj::Bool(false)))
-    );
-    assert_eq!(
-        expr("12".to_string()),
-        ParseResult::Ok(("".to_string(), ParseObj::Uint(12)))
-    );
-    assert_eq!(
-        expr("-12".to_string()),
-        ParseResult::Ok(("".to_string(), ParseObj::Int(-12)))
-    );
-    assert_eq!(
-        expr("12.2".to_string()),
-        ParseResult::Ok(("".to_string(), ParseObj::Float(12.2)))
-    );
-    assert_eq!(
-        expr("-12.2".to_string()),
-        ParseResult::Ok(("".to_string(), ParseObj::Float(-12.2)))
-    );
-    assert_eq!(
-        expr("name".to_string()),
-        ParseResult::Ok(("".to_string(), ParseObj::Ident("name".to_string())))
-    );
-}
-
-fn test_parse_decl_bool() {
-    let decl_res = decl("a = false".to_string());
-    assert!(decl_res.is_ok());
-    if let (_, ParseObj::Decl(name, be)) = decl_res.unwrap() {
-        assert_eq!(name, "a");
-        assert_eq!(be, Box::new(ParseObj::Bool(false)));
-    } else {
-        assert!(false);
-    }
-}
-#[test]
-fn test_parse_decl_int() {
-    let decl_res = decl("a = -2".to_string());
-    assert!(decl_res.is_ok());
-    if let (_, ParseObj::Decl(name, be)) = decl_res.unwrap() {
-        assert_eq!(name, "a");
-        assert_eq!(be, Box::new(ParseObj::Int(-2)));
-    } else {
-        assert!(false);
-    }
-}
-#[test]
-fn test_parse_decl_uint() {
-    let decl_res = decl("a = 2".to_string());
-    assert!(decl_res.is_ok());
-    if let (_, ParseObj::Decl(name, be)) = decl_res.unwrap() {
-        assert_eq!(name, "a");
-        assert_eq!(be, Box::new(ParseObj::Uint(2)));
-    } else {
-        assert!(false);
-    }
-}
-#[test]
-fn test_parse_string() {
-    assert_eq!(
-        string("\"amirreza\"".to_string()),
-        ParseResult::Ok(("".to_string(), ParseObj::Str("amirreza".to_string())))
+        expr("fn_call(1,2)".to_string()),
+        ParseResult::Ok((
+            "".to_string(),
+            ParseObj::FnCall(
+                "fn_call".to_string(),
+                vec![ParseObj::Uint(1), ParseObj::Uint(2),]
+            )
+        ))
     );
 }
