@@ -203,22 +203,22 @@ fn test_parse_keyword() {
     );
 }
 
-// #[test]
-// fn test_parse_bool() {
-//     assert_eq!(
-//         bool("truesomeshitaftertrue".to_string()),
-//         ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(true)))
-//     );
-//     assert_eq!(
-//         bool("falsesomeshitaftertrue".to_string()),
-//         ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(false),))
-//     );
-// }
+#[test]
+fn test_parse_bool() {
+    assert_eq!(
+        bool("truesomeshitaftertrue".to_string()),
+        ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(true)))
+    );
+    assert_eq!(
+        bool("falsesomeshitaftertrue".to_string()),
+        ParseResult::Ok(("someshitaftertrue".to_string(), ParseObj::Bool(false),))
+    );
+}
 
-// #[test]
-// fn test_parse_float() {
-//     assert_eq!(
-//         float("4.2".to_string()),
-//         ParseResult::Ok(("".to_string(), ParseObj::Float(4.2)))
-//     );
-// }
+#[test]
+fn test_parse_float() {
+    assert_eq!(
+        float("4.2".to_string()),
+        ParseResult::Ok(("".to_string(), ParseObj::Float(4.2)))
+    );
+}
