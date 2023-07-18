@@ -1,8 +1,5 @@
 #![allow(dead_code)]
 
-use anyhow::Ok;
-
-use crate::parser;
 /*TODO
     - for
         - c syntax
@@ -52,99 +49,8 @@ impl std::error::Error for ParseErr {}
 
 type ParseResult = Result<(String, ParseObj), ParseErr>;
 
-fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
-    return move |input: String| {
-        if input.len() < 1 {
-            return ParseResult::Err(ParseErr::Unexpected(
-                c.to_string(),
-                "nothing".to_string(),
-                0,
-            ));
-        }
-
-        if input.chars().nth(0).unwrap() == c.clone() {
-            return ParseResult::Ok((input[1..].to_string(), ParseObj::Char(c)));
-        }
-        return ParseResult::Err(ParseErr::Unexpected(
-            c.to_string(),
-            input.chars().nth(0).unwrap().to_string(),
-            0,
-        ));
-    };
-}
-
-fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
-    return move |input: String| {
-        for parser in parsers.iter() {
-            match parser(input.clone()) {
-                Ok((remaining, parsed)) => {
-                    println!("any of remaining,parsed: {}", remaining, parsed);
-                    return Ok((remaining, parsed));
-                }
-                Err(err) => continue,
-            }
-        }
-    };
-}
-fn any_whitespace() -> impl Fn(String) -> ParseResult {
-    let sp = parse_char(' ');
-    let tab = parse_char('\t');
-    let newline = parse_char('\n');
-    return any_of(vec![sp, tab, newline]);
-}
-
-fn zero_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
-    return move |mut input: String| {
-        let mut result = vec::new();
-        while let Ok((remains, parsed)) = parser(input.clone()) {
-            input = remains;
-            result.push(parsed);
-            println!("any of remains,parsed: {}", remains, parsed);
-        }
-        return Ok((input.clone(), ParseObj::List(result)));
-    };
-}
-
-fn whitespace(input: String) -> Result<String, ParseErr> {
+fn whitespace() -> impl Fn(String) -> ParseResult {
     return zero_or_more(any_whitespace());
-}
-
-fn decl(mut input: String) -> ParseResult {
-    // ident: expr = expr;
-    let (remains, _) = whitespace()(input.clone())?;
-    let (remains, obj) = ident(remains)?;
-    let mut identifier = "".to_string();
-    match obj {
-        ParseObj::Ident(i) => identifier = i,
-        _ => {
-            return Err(ParseErr::Unexpected(
-                "ident".to_string(),
-                format!("{:?}", obj),
-                0,
-            ))
-        }
-    }
-    println!("ident: {} remains: \"{}\"", identifier, remains);
-    let (mut remains, _) = whitespace()(remains)?;
-    let mut ty: Option<ParseObj> = None;
-    let colon_res = parse_char(':')(remains.clone());
-    match colon_res {
-        Ok((r, ParseObj::Char(':'))) => {
-            let ty_res = expr(r)?;
-            remains = ty_res.0;
-            ty = Some(ty_res.1);
-        }
-        _ => {}
-    }
-    let (remains, _) = parse_char('=')(remains)?;
-    let (remains, _) = whitespace()(remains)?;
-    println!("remains: \"{}\"", remains);
-    let (remains, e) = expr(remains)?;
-    println!("expr: {:?} remains: \"{}\"", e, remains);
-    return Ok((
-        remains,
-        ParseObj::Decl(identifier, Box::new(ty), Box::new(e)),
-    ));
 }
 
 #[test]
