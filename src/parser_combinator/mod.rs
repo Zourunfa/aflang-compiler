@@ -65,3 +65,20 @@ fn test_parse_decl_bool() {
         assert!(false);
     }
 }
+
+/**
+ * box是一个智能指针，用于在堆上分配内存，并持有其数据
+ * 她允许你在编译时知道数据的大小，并且拥有所有权，而不需要
+ * 手动管理内存的分配和释放
+ * 
+ * 
+ * fn main() {
+    // 在堆上分配一个整数，并将所有权移交给 box_pointer
+    let box_pointer: Box<i32> = Box::new(42);
+
+    // 使用 * 运算符来获取指针所指向的数据
+    println!("Value: {}", *box_pointer);
+    
+    // 在这个代码块的末尾，box_pointer 将被释放，从而释放堆上的内存
+}
+ */
