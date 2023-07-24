@@ -33,9 +33,15 @@ pub enum ParseObj {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseErr {
     // unexpected (expected, found, location)
+    // 首先，枚举类型ParseErr有两种可能的值：Unexpected和Unknown。
+
+    // 这种类型的错误包含三个部分的信息：期望的内容（类型为String），实际找到的内容（类型为String），以及错误发生的位置（类型为u64）。
     Unexpected(String, String, u64),
+    // Unknown: 这种类型的错误包含一个消息，这个消息是一个String，描述了未知的错误内容。
     Unknown(String),
 }
+
+// std::fmt::Display trait。这个trait是Rust标准库中用于处理字符串显示的trait。实现Display trait就是为了自定义ParseErr枚举的字符串显示方式。
 impl std::fmt::Display for ParseErr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
