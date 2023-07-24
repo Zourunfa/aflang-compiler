@@ -25,7 +25,7 @@ struct Student {
 
 impl Student {
     fn new(name: String, scores: Vec<u32>) -> Student {
-        // 使用Box
+        // into_boxed_slice() 方法用于将一个 Slice 转换为一个 Boxed Slice
         let boxed_scores: Box<[u32]> = scores.into_boxed_slice();
 
         Student {
@@ -41,6 +41,22 @@ impl Student {
     }
 }
 
+// move关键字捕获当前环境中变量的所有权
+
+fn biBaoMove() {
+    let num: u32 = 5;
+
+    let add_Resure = move |x: u32| x + num;
+
+    let y = add_Resure(1);
+
+    println!("y:{}", y);
+
+    // 下面的代码将报错，因为 num 的所有权已被 move 到闭包中
+    num = 10;
+    // return y;
+}
+
 #[test]
 
 fn average_score_test() {
@@ -48,4 +64,9 @@ fn average_score_test() {
     let avg_score: f64 = alice.average_score();
     assert_eq!(avg_score, avg_score);
     println!("average_score : {:?}", avg_score);
+}
+
+#[test]
+fn move_test() {
+    let a = biBaoMove();
 }

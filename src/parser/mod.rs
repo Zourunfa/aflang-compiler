@@ -167,8 +167,13 @@ fn ident(input: String) -> ParseResult {
 
 fn decl(mut input: String) -> ParseResult {
     // ident: expr = expr;
+    // 1.去掉前面的换行空格和缩进
     let (remains, _) = whitespace()(input.clone())?;
+
+    println!("whitespace remains{:?}", remains);
+    // 2.获取变量
     let (remains, obj) = ident(remains)?;
+    println!("ident remains{:?}", remains);
     let mut identifier = "".to_string();
     match obj {
         ParseObj::Ident(i) => identifier = i,
@@ -181,6 +186,7 @@ fn decl(mut input: String) -> ParseResult {
         }
     }
     println!("ident: {} remains: \"{}\"", identifier, remains);
+    // 继续去掉空格
     let (mut remains, _) = whitespace()(remains)?;
     let mut ty: Option<ParseObj> = None;
     let colon_res = parse_char(':')(remains.clone());
