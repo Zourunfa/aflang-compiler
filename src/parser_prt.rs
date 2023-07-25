@@ -1,7 +1,6 @@
 // #[cfg(test)]
 /**
 Rust的闭包是一种可以捕获其环境并作为匿名函数使用的特殊函数类型。闭包可以在定义时捕获外部变量，并在后续调用中访问和修改这些变量，即使这些变量在闭包被创建时已经超出了其作用域。
-
 闭包在Rust中的语法与普通函数相似，但有一些额外的功能和限制。闭包可以通过 move 关键字来强制所有捕获的变量的所有权转移给闭包，这在需要在闭包中使用捕获的变量的所有权时非常有用。闭包还可以使用 Fn、FnMut 或 FnOnce trait
  来指定其对捕获变量的访问方式，这允许闭包在调用时对捕获的变量进行不同程度的修改。
 Rust的闭包也是类型安全的，它们的类型是由编译器自动推断的。闭包可以像普通函数一样作为参数传递给其他函数，也可以在需要函数类型的地方直接使用。闭包还可以通过使用 || 语法来定义多个参数，并使用 |...| 语法来指定参数的模式匹配。
@@ -46,6 +45,7 @@ impl std::fmt::Display for ParseErr {
         }
     }
 }
+
 impl std::error::Error for ParseErr {}
 
 type ParseResult = Result<(String, ParseObj), ParseErr>;
@@ -73,8 +73,12 @@ fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
 fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
     return move |input: String| {
         for parser in parsers.iter() {
+            println!("any_of");
             match parser(input.clone()) {
-                Ok((remaining, parsed)) => return Ok((remaining, parsed)),
+                Ok((remaining, parsed)) => {
+                    println!("any_of remains, parsed :{:?} {:?}", remaining, parsed);
+                    return Ok((remaining, parsed));
+                }
                 Err(err) => continue,
             }
         }
@@ -90,9 +94,15 @@ fn any_whitespace() -> impl Fn(String) -> ParseResult {
 }
 
 fn zero_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    println!("1");
+
     return move |mut input: String| {
         let mut result = Vec::new();
+        println!("2");
         while let Ok((remains, parsed)) = parser(input.clone()) {
+            println!("3");
+            println!("Parser was applied to the input: {}", input);
+            println!("remains, parsed :{:?} {:?}", remains, parsed);
             input = remains;
             result.push(parsed);
         }
@@ -108,6 +118,7 @@ fn decl(mut input: String) {
     let (remains, _) = whitespace()(input.clone()).unwrap();
     println!("whitespace remains{:?}", remains);
 }
+
 #[test]
 fn test_parse_decl_bool() {
     let decl_res = decl("a = false".to_string());
