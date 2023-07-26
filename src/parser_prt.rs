@@ -121,7 +121,7 @@ fn decl(mut input: String) {
 
 #[test]
 fn test_parse_decl_bool() {
-    let decl_res = decl("a = false".to_string());
+    let decl_res = decl("\n a = false".to_string());
     // assert!(decl_res.is_ok());
     // let none: Box<Option<ParseObj>> = Box::new(None);
     // if let (_, ParseObj::Decl(name, none, be)) = decl_res.unwrap() {

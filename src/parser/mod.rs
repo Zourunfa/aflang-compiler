@@ -94,6 +94,7 @@ fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
         ));
     };
 }
+
 fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
     return move |mut input: String| {
         let mut result = Vec::new();
