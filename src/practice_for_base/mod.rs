@@ -53,7 +53,7 @@ fn biBaoMove() {
     println!("y:{}", y);
 
     // 下面的代码将报错，因为 num 的所有权已被 move 到闭包中
-    num = 10;
+    // num = 10;
     // return y;
 }
 
