@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 // #[cfg(test)]
 /**
 Rust的闭包是一种可以捕获其环境并作为匿名函数使用的特殊函数类型。闭包可以在定义时捕获外部变量，并在后续调用中访问和修改这些变量，即使这些变量在闭包被创建时已经超出了其作用域。
@@ -50,21 +52,35 @@ impl std::error::Error for ParseErr {}
 
 type ParseResult = Result<(String, ParseObj), ParseErr>;
 
+fn zero_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        let mut result = Vec::new();
+
+        while let Ok((remains, parsed)) = parser(input.clone()) {
+            input = remains;
+            result.push(parsed);
+        }
+        return Ok((input.clone(), ParseObj::List(result)));
+    };
+}
+
 fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
     return move |input: String| {
-        if input.len() < 1 {
+        if input.is_empty() {
             return ParseResult::Err(ParseErr::Unexpected(
-                c.to_string(),
+                input.to_string(),
                 "nothing".to_string(),
                 0,
             ));
         }
-        if input.chars().nth(0).unwrap() == c.clone() {
+
+        if input.chars().nth(0).unwrap() == c {
             return ParseResult::Ok((input[1..].to_string(), ParseObj::Char(c)));
         }
+
         return ParseResult::Err(ParseErr::Unexpected(
             c.to_string(),
-            input.chars().nth(0).unwrap().to_string(),
+            "nothing".to_string(),
             0,
         ));
     };
@@ -73,12 +89,8 @@ fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
 fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
     return move |input: String| {
         for parser in parsers.iter() {
-            println!("any_of");
             match parser(input.clone()) {
-                Ok((remaining, parsed)) => {
-                    println!("any_of remains, parsed :{:?} {:?}", remaining, parsed);
-                    return Ok((remaining, parsed));
-                }
+                Ok((remains, parsed)) => return Ok((remains, parsed)),
                 Err(err) => continue,
             }
         }
@@ -89,25 +101,9 @@ fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> Pa
 fn any_whitespace() -> impl Fn(String) -> ParseResult {
     let sp = parse_char(' ');
     let tab = parse_char('\t');
-    let newline = parse_char('\n');
-    return any_of(vec![sp, tab, newline]);
-}
+    let new_line = parse_char('\n');
 
-fn zero_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
-    println!("1");
-
-    return move |mut input: String| {
-        let mut result = Vec::new();
-        println!("2");
-        while let Ok((remains, parsed)) = parser(input.clone()) {
-            println!("3");
-            println!("Parser was applied to the input: {}", input);
-            println!("remains, parsed :{:?} {:?}", remains, parsed);
-            input = remains;
-            result.push(parsed);
-        }
-        return Ok((input.clone(), ParseObj::List(result)));
-    };
+    return any_of(vec![sp, tab, new_line]);
 }
 
 fn whitespace() -> impl Fn(String) -> ParseResult {
@@ -117,11 +113,77 @@ fn whitespace() -> impl Fn(String) -> ParseResult {
 fn decl(mut input: String) {
     let (remains, _) = whitespace()(input.clone()).unwrap();
     println!("whitespace remains{:?}", remains);
+    // println!("whitespace remains{:?}", remains);
+    let (remains, obj) = ident(remains).unwrap();
+    println!("ident remains{:?}", remains);
+}
+
+fn parse_chars(chars: &str) -> impl Fn(String) -> ParseResult {
+    let parsers = chars.chars().map(|c| parse_char(c)).collect();
+
+    return any_of(parsers);
+}
+
+fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        let mut result = Vec::new();
+
+        match parser(input.clone()) {
+            Ok((remains, parsed)) => {
+                input = remains;
+                result.push(parsed);
+            }
+            Err(err) => {
+                return Err(err);
+            }
+        }
+
+        while let Ok((remains, parsed)) = parser(input.clone()) {
+            input = remains;
+            result.push(parsed)
+        }
+
+        return Ok((input.clone(), ParseObj::List(result)));
+    };
+}
+
+fn ident(input: String) -> ParseResult {
+    match one_or_more(parse_chars(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_",
+    ))(input)
+    {
+        Ok((remains, ParseObj::List(chars_parse_objects))) => {
+            let mut name = String::new();
+
+            for po in chars_parse_objects {
+                match po {
+                    ParseObj::Char(c) => name.push(c),
+                    _ => {
+                        return Err(ParseErr::Unexpected(
+                            "a char".to_string(),
+                            format!("{:?}", po),
+                            0,
+                        ))
+                    }
+                }
+            }
+            return Ok((remains, ParseObj::Ident(name)));
+        }
+        Ok((_, obj)) => {
+            return Err(ParseErr::Unexpected(
+                "list of chars".to_string(),
+                format!("{:?}", obj),
+                0,
+            ))
+        }
+        Err(err) => Err(err),
+    }
 }
 
 #[test]
 fn test_parse_decl_bool() {
     let decl_res = decl("\n a = false".to_string());
+
     // assert!(decl_res.is_ok());
     // let none: Box<Option<ParseObj>> = Box::new(None);
     // if let (_, ParseObj::Decl(name, none, be)) = decl_res.unwrap() {
