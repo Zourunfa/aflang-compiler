@@ -103,8 +103,8 @@ fn zero_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> Pa
 
 fn any_whitespace() -> impl Fn(String) -> ParseResult {
     let sp = parse_char(' ');
-    let tab = parse_char(' ');
-    let newline = parse_char(' ');
+    let tab = parse_char('\t');
+    let newline = parse_char('\n');
 
     return any_of(vec![sp, tab, newline]);
 }
@@ -120,7 +120,7 @@ fn decl(mut input: String) {
 
 #[test]
 fn test_parse_decl_bool() {
-    let decl_res = decl("a = false".to_string());
+    let decl_res = decl(" \na = false".to_string());
     // assert!(decl_res.is_ok());
     // let none: Box<Option<ParseObj>> = Box::new(None);
     // if let (_, ParseObj::Decl(name, none, be)) = decl_res.unwrap() {
