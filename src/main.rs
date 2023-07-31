@@ -1,4 +1,4 @@
-// mod parser;
+mod parser;
 mod parser_combinator;
 mod parser_prt;
 // mod practice_for_base;

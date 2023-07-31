@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 // #[cfg(test)]
 /**
 Rust的闭包是一种可以捕获其环境并作为匿名函数使用的特殊函数类型。闭包可以在定义时捕获外部变量，并在后续调用中访问和修改这些变量，即使这些变量在闭包被创建时已经超出了其作用域。
@@ -51,7 +49,7 @@ impl std::fmt::Display for ParseErr {
 impl std::error::Error for ParseErr {}
 
 type ParseResult = Result<(String, ParseObj), ParseErr>;
-
+// ling
 fn zero_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
     return move |mut input: String| {
         let mut result = Vec::new();
@@ -110,20 +108,15 @@ fn whitespace() -> impl Fn(String) -> ParseResult {
     return zero_or_more(any_whitespace());
 }
 
-fn decl(mut input: String) {
-    let (remains, _) = whitespace()(input.clone()).unwrap();
-    println!("whitespace remains{:?}", remains);
-    // println!("whitespace remains{:?}", remains);
-    let (remains, obj) = ident(remains).unwrap();
-    println!("ident remains{:?}", remains);
-}
-
 fn parse_chars(chars: &str) -> impl Fn(String) -> ParseResult {
     let parsers = chars.chars().map(|c| parse_char(c)).collect();
-
     return any_of(parsers);
 }
-
+// 一次或多次匹配，至少有一次匹配
+/**
+one_or_more 函数的使用确保了在解析标识符时，至少有一个合法的字符被匹配，
+否则会返回错误。这样可以避免在代码中处理空标识符或非法标识符的情况。
+*/
 fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
     return move |mut input: String| {
         let mut result = Vec::new();
@@ -177,6 +170,72 @@ fn ident(input: String) -> ParseResult {
             ))
         }
         Err(err) => Err(err),
+    }
+}
+
+fn keyword(word: String) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        let word_chars = word.chars();
+        for c in word_chars {
+            match parse_char(c)(input) {
+                Ok((remains, _)) => input = remains,
+                Err(err) => return Err(err),
+            }
+        }
+        return Ok((input, ParseObj::Keyword(word.clone())));
+    };
+}
+
+fn bool(input: String) -> ParseResult {
+    let _true = keyword("true".to_string());
+    let _false = keyword("false".to_string());
+    let (remains, bool_parsed) = any_of(vec![_true, _false])(input)?;
+
+    if let ParseObj::Keyword(b) = bool_parsed {
+        return Ok((remains, ParseObj::Bool(b == "true")));
+    } else {
+        unreachable!()
+    }
+}
+
+fn expr(input: String) -> ParseResult {
+    let parsers: Vec<fn(String) -> Result<(String, ParseObj), ParseErr>> = vec![bool, ident];
+    return any_of(parsers)(input);
+}
+
+fn decl(mut input: String) {
+    // 1.去掉前面的换行空格和缩进
+    let (remains, _) = whitespace()(input.clone()).unwrap();
+
+    println!("whitespace remains{:?}", remains);
+    // 2.获取变量
+    let (remains, obj) = ident(remains).unwrap();
+    println!("ident remains{:?}", remains);
+    let mut identifier = "".to_string();
+    match obj {
+        ParseObj::Ident(i) => identifier = i,
+        _ => {
+            // return Err(ParseErr::Unexpected(
+            //     "ident".to_string(),
+            //     format!("{:?}", obj),
+            //     0,
+            // ))
+        }
+    }
+    println!("ident: {} remains: \"{}\"", identifier, remains);
+    // 继续去掉空格
+    let (mut remains, _) = whitespace()(remains).unwrap();
+
+    let mut ty: Option<ParseObj> = None;
+    let colon_res = parse_char(':')(remains.clone());
+    println!("colon_res: {:?}", colon_res);
+    match colon_res {
+        Ok((r, ParseObj::Char(':'))) => {
+            let ty_res = expr(r).unwrap();
+            remains = ty_res.0;
+            ty = Some(ty_res.1);
+        }
+        _ => {}
     }
 }
 

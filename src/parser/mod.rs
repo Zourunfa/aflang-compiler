@@ -191,6 +191,7 @@ fn decl(mut input: String) -> ParseResult {
     let (mut remains, _) = whitespace()(remains)?;
     let mut ty: Option<ParseObj> = None;
     let colon_res = parse_char(':')(remains.clone());
+    println!("colon_res: {:?}", colon_res);
     match colon_res {
         Ok((r, ParseObj::Char(':'))) => {
             let ty_res = expr(r)?;
