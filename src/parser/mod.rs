@@ -118,6 +118,10 @@ fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> Par
 }
 fn parse_chars(chars: &str) -> impl Fn(String) -> ParseResult {
     let parsers = chars.chars().map(|c| parse_char(c)).collect();
+
+    let res1 = chars.chars().map(|c| parse_char(c));
+    println!("chars.chars().map(|c| parse_char {:?}", res1);
+
     return any_of(parsers);
 }
 
@@ -254,6 +258,19 @@ fn test_parse_decl_bool() {
     if let (_, ParseObj::Decl(name, none, be)) = decl_res.unwrap() {
         assert_eq!(name, "a");
         assert_eq!(be, Box::new(ParseObj::Bool(false)));
+    } else {
+        assert!(false);
+    }
+}
+
+#[test]
+fn test_parse_decl_int() {
+    let decl_res = decl("a = -2".to_string());
+    assert!(decl_res.is_ok());
+    let none: Box<Option<ParseObj>> = Box::new(None);
+    if let (_, ParseObj::Decl(name, none, be)) = decl_res.unwrap() {
+        assert_eq!(name, "a");
+        assert_eq!(be, Box::new(ParseObj::Int(-2)));
     } else {
         assert!(false);
     }
