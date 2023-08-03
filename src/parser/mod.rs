@@ -159,6 +159,7 @@ fn ident(input: String) -> ParseResult {
             }
             return Ok((remains, ParseObj::Ident(name)));
         }
+        // 匹配只有一个字符作为标志符的情况
         Ok((_, obj)) => {
             return Err(ParseErr::Unexpected(
                 "list of chars".to_string(),

@@ -111,19 +111,62 @@ fn any_whitespace() -> impl Fn(String) -> ParseResult {
     return any_of(vec![sp, tab, newline]);
 }
 
-fn parse_chars(input: &str) -> impl Fn(String) -> ParseResult {
+fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        let mut result = Vec::new();
+        match parser(input.clone()) {
+            Ok((remains, parsed)) => {
+                input = remains;
+                result.push(parsed)
+            }
+            Err(e) => return Err(e),
+        }
+
+        while let Ok((remains, parsed)) = parser(input.clone()) {
+            input = remains;
+            result.push(parsed)
+        }
+
+        return Ok((input.clone(), ParseObj::List(result)));
+    };
+}
+
+fn parse_chars(chars: String) -> impl Fn(String) -> ParseResult {
     let parsers = chars.chars().map(|c| parse_char(c)).collect();
     return any_of(parsers);
 }
 
-fn one_or_more(parser: impl Fn(String) -> ParseResult) ->impl Fn(String) -> ParseResult {{
-  
-}
-
 fn ident(input: String) -> ParseResult {
-    match one_or_more(parse_char(
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_",
-    ))(input) {}
+    match one_or_more(parse_chars(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_".to_string(),
+    ))(input)
+    {
+        Ok((remains, ParseObj::List(chars_parse_objects))) => {
+            let mut name = String::new();
+
+            for po in chars_parse_objects {
+                match po {
+                    ParseObj::Char(c) => name.push(c),
+                    _ => {
+                        return Err(ParseErr::Unexpected(
+                            "a char".to_string(),
+                            format!("{:?}", po),
+                            0,
+                        ))
+                    }
+                }
+            }
+            return Ok((remains, ParseObj::Ident(name)));
+        }
+        Ok((_, obj)) => {
+            return Err(ParseErr::Unexpected(
+                "list of chars".to_string(),
+                format!("{:?}", obj),
+                0,
+            ))
+        }
+        Err(err) => Err(err),
+    }
 }
 
 fn whitespace() -> impl Fn(String) -> ParseResult {
