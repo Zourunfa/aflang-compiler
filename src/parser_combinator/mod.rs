@@ -173,7 +173,37 @@ fn whitespace() -> impl Fn(String) -> ParseResult {
     return zero_or_more(any_whitespace());
 }
 
-fn decl(mut input: String) {
+fn keyword(word: String) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        let word_chars = word.chars();
+        for c in word_chars {
+            match parse_char(c)(input) {
+                Ok((remains, _)) => input = remains,
+                Err(err) => return Err(err),
+            }
+        }
+        return Ok((input, ParseObj::Keyword(word.clone())));
+    };
+}
+
+fn bool(input: String) -> ParseResult {
+    let _true = keyword("true".to_string());
+    let _false = keyword("false".to_string());
+    let (remains, bool_parsed) = any_of(vec![_true, _false])(input)?;
+
+    if let ParseObj::Keyword(b) = bool_parsed {
+        return Ok((remains, ParseObj::Bool(b == "true")));
+    } else {
+        unreachable!()
+    }
+}
+
+fn expr(input: String) -> ParseResult {
+    let parsers: Vec<fn(String) -> Result<(String, ParseObj), ParseErr>> = vec![bool, ident];
+    return any_of(parsers)(input);
+}
+
+fn decl(mut input: String) -> ParseResult {
     let (remains, _) = whitespace()(input.clone()).unwrap();
     println!("whitespace remains{:?}", remains);
 
@@ -191,8 +221,37 @@ fn decl(mut input: String) {
         }
     }
     println!("ident: {} remains: \"{}\"", identifier, remains);
+    let (mut remains, _) = whitespace()(remains).unwrap();
+    let mut ty: Option<ParseObj> = None;
+    // let colon_res = parse_char(':')(remains.clone());
+
+    // match colon_res {
+    //   Ok((r,ParseObj::Char(':')))=>{
+    // let ty_res = expr(r)?;
+    // remains = ty_res.0;
+    // ty = Some(ty_res.1);
+    //   }
+    // }
+    let (remains, _) = parse_char('=')(remains)?;
+    let (remains, _) = whitespace()(remains)?;
+
+    println!("remains: \"{}\"", remains);
+    let (remains, e) = expr(remains)?;
+    println!("expr: {:?} remains: \"{}\"", e, remains);
+    return Ok((
+        remains,
+        ParseObj::Decl(identifier, Box::new(ty), Box::new(e)),
+    ));
 }
 #[test]
 fn test_parse_decl_bool() {
-    let decl_res = decl("  a = false".to_string());
+    let decl_res = decl("a = false".to_string());
+    assert!(decl_res.is_ok());
+    let none: Box<Option<ParseObj>> = Box::new(None);
+    if let (_, ParseObj::Decl(name, none, be)) = decl_res.unwrap() {
+        assert_eq!(name, "a");
+        assert_eq!(be, Box::new(ParseObj::Bool(false)));
+    } else {
+        assert!(false);
+    }
 }
