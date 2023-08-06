@@ -17,7 +17,7 @@
     // 在这个代码块的末尾，box_pointer 将被释放，从而释放堆上的内存
 }
  */
-
+use std::fs::File;
 struct Student {
     name: String,
     scores: Box<[u32]>,
@@ -151,6 +151,21 @@ unwrap()：当你有一个 Result<T, E> 或 Option<T> 类型的值，并且你�
 
  */
 
+
+// Result枚举
+fn open_file(filename: &str) -> Result<(), std::io::Error> {
+    let f = File::open(filename)?;
+
+    Ok(())
+}
+
+#[test]
+fn Result_Options_test() {
+    match open_file("non_existent_file.txt") {
+        Ok(_) => println!("File opened successfully."),
+        Err(err) => println!("Failed to open file: {}", err),
+    }
+}
 
 #[test]
 

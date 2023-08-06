@@ -18,6 +18,7 @@ pub enum ParseObj {
     Ident(String),
     Bool(bool),
     List(Vec<ParseObj>),
+    // Box用于在堆上分配空间并存储值，这在你需要存储大型数据或具有递归数据类型的时候特别有用。
     Decl(String, Box<Option<ParseObj>>, Box<ParseObj>),
     FnCall(String, Vec<ParseObj>),
     Struct(Vec<(ParseObj, ParseObj)>),
@@ -33,9 +34,15 @@ pub enum ParseObj {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseErr {
     // unexpected (expected, found, location)
+    // 首先，枚举类型ParseErr有两种可能的值：Unexpected和Unknown。
+
+    // 这种类型的错误包含三个部分的信息：期望的内容（类型为String），实际找到的内容（类型为String），以及错误发生的位置（类型为u64）。
     Unexpected(String, String, u64),
+    // Unknown: 这种类型的错误包含一个消息，这个消息是一个String，描述了未知的错误内容。
     Unknown(String),
 }
+
+// std::fmt::Display trait。这个trait是Rust标准库中用于处理字符串显示的trait。实现Display trait就是为了自定义ParseErr枚举的字符串显示方式。
 impl std::fmt::Display for ParseErr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -88,6 +95,7 @@ fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
         ));
     };
 }
+
 fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
     return move |mut input: String| {
         let mut result = Vec::new();
@@ -184,6 +192,7 @@ fn decl(mut input: String) -> ParseResult {
     let (mut remains, _) = whitespace()(remains)?;
     let mut ty: Option<ParseObj> = None;
     let colon_res = parse_char(':')(remains.clone());
+    println!("colon_res: {:?}", colon_res);
     match colon_res {
         Ok((r, ParseObj::Char(':'))) => {
             let ty_res = expr(r)?;
@@ -242,6 +251,11 @@ fn expr(input: String) -> ParseResult {
 fn test_parse_decl_bool() {
     let decl_res = decl("a = false".to_string());
     assert!(decl_res.is_ok());
+
+    // Box<Option<ParseObj>>：Box是一个指向堆内存的智能指针。它 可以有效地管理和引用堆内存上的数据。此处，Box是用来存储Option<ParseObj>类型的值。
+
+    //  当你使用Box::new(None)创建一个新的boxed None值时，
+    // 你实际上是在堆上分配了一个Option<ParseObj>的空间，并初始化为None。这可能是因为你希望稍后将这个空位置填充为Some(ParseObj)。
     let none: Box<Option<ParseObj>> = Box::new(None);
     if let (_, ParseObj::Decl(name, none, be)) = decl_res.unwrap() {
         assert_eq!(name, "a");
