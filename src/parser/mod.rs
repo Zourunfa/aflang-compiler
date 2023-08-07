@@ -44,6 +44,7 @@ pub enum ParseErr {
 
 // std::fmt::Display trait。这个trait是Rust标准库中用于处理字符串显示的trait。实现Display trait就是为了自定义ParseErr枚举的字符串显示方式。
 impl std::fmt::Display for ParseErr {
+    // 这是实现 Display trait 必须提供的方法 fmt。它决定了如何格式化 ParseErr 为一个字符串。参数 f 是一个格式化器，用于接收输出字符串。
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unexpected(_, _, _) => f.write_fmt(format_args!("{:?}", self)),
@@ -52,6 +53,9 @@ impl std::fmt::Display for ParseErr {
         }
     }
 }
+
+// 这是为 ParseErr 实现 std::error::Error trait 的代码。在这种情况下，它是一个空的实现，
+// 即它没有提供任何额外的方法或者重写任何默认方法。这意味着 ParseErr 可以被视为一个基础的错误类型，没有提供额外的上下文或者链式错误的能力。
 impl std::error::Error for ParseErr {}
 
 type ParseResult = Result<(String, ParseObj), ParseErr>;
