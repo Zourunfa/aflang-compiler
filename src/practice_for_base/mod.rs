@@ -64,6 +64,20 @@ fn open_file(filename: &str) -> Result<(), std::io::Error> {
     Ok(())
 }
 
+// 在Rust中，Option是一个枚举类型，用于表示一个可能存在或可能不存在的值。
+// Option枚举有两个成员：Some和None。
+
+// Option的主要作用是处理可能为空的值，以避免使用null或undefined等空值引发的错误。
+// 通过使用Option枚举，可以在编译时强制进行空值检查，以确保代码的安全性。
+
+fn divide(numerator: i32, denominator: i32) -> Option<f64> {
+    if denominator == 0 {
+        none
+    } else {
+        Some(numerator as f64 / denominator as f64)
+    }
+}
+
 #[test]
 fn Result_Options_test() {
     match open_file("non_existent_file.txt") {
@@ -84,4 +98,15 @@ fn average_score_test() {
 #[test]
 fn move_test() {
     let a = biBaoMove();
+}
+
+#[test]
+fn test_divide() {
+    let a = 10;
+    let b = 2;
+
+    match divide(a, b) {
+        Some(result) => println!("result: {:?}", result),
+        None => println!("denominator cannot be zero"),
+    }
 }

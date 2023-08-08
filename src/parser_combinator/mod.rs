@@ -233,6 +233,7 @@ fn decl(mut input: String) -> ParseResult {
     //   }
     // }
     let (remains, _) = parse_char('=')(remains)?;
+    println!("remains =: \"{}\"", remains);
     let (remains, _) = whitespace()(remains)?;
 
     println!("remains: \"{}\"", remains);
