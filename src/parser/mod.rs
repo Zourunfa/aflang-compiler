@@ -18,6 +18,7 @@ pub enum ParseObj {
     Ident(String),
     Bool(bool),
     List(Vec<ParseObj>),
+    // Box用于在堆上分配空间并存储值，这在你需要存储大型数据或具有递归数据类型的时候特别有用。
     Decl(String, Box<Option<ParseObj>>, Box<ParseObj>),
     FnCall(String, Vec<ParseObj>),
     Struct(Vec<(ParseObj, ParseObj)>),
@@ -255,6 +256,11 @@ fn expr(input: String) -> ParseResult {
 fn test_parse_decl_bool() {
     let decl_res = decl("a = false".to_string());
     assert!(decl_res.is_ok());
+
+    // Box<Option<ParseObj>>：Box是一个指向堆内存的智能指针。它 可以有效地管理和引用堆内存上的数据。此处，Box是用来存储Option<ParseObj>类型的值。
+
+    //  当你使用Box::new(None)创建一个新的boxed None值时，
+    // 你实际上是在堆上分配了一个Option<ParseObj>的空间，并初始化为None。这可能是因为你希望稍后将这个空位置填充为Some(ParseObj)。
     let none: Box<Option<ParseObj>> = Box::new(None);
     if let (_, ParseObj::Decl(name, none, be)) = decl_res.unwrap() {
         assert_eq!(name, "a");

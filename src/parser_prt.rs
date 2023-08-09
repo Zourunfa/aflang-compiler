@@ -85,14 +85,18 @@ fn parse_char(c: char) -> impl Fn(String) -> ParseResult {
 }
 
 fn any_of(parsers: Vec<impl Fn(String) -> ParseResult>) -> impl Fn(String) -> ParseResult {
-    return move |input: String| {
+    return move |mut input: String| {
         for parser in parsers.iter() {
             match parser(input.clone()) {
                 Ok((remains, parsed)) => return Ok((remains, parsed)),
                 Err(err) => continue,
             }
         }
-        return Err(ParseErr::Unexpected("".to_string(), "".to_string(), 0));
+        return ParseResult::Err(ParseErr::Unexpected(
+            input.to_string(),
+            "nothing".to_string(),
+            0,
+        ));
     };
 }
 
@@ -214,43 +218,40 @@ fn expr(input: String) -> ParseResult {
 
 fn decl(mut input: String) -> ParseResult {
     // 1.去掉前面的换行空格和缩进
-    let (remains, _) = whitespace()(input.clone()).unwrap();
+    let (remains, _) = whitespace()(input.clone())?;
 
     println!("whitespace remains{:?}", remains);
     // 2.获取变量
-    let (remains, obj) = ident(remains).unwrap();
+    let (remains, obj) = ident(remains)?;
     println!("ident remains{:?}", remains);
     let mut identifier = "".to_string();
     match obj {
         ParseObj::Ident(i) => identifier = i,
         _ => {
-            // return Err(ParseErr::Unexpected(
-            //     "ident".to_string(),
-            //     format!("{:?}", obj),
-            //     0,
-            // ))
+            return Err(ParseErr::Unexpected(
+                "ident".to_string(),
+                format!("{:?}", obj),
+                0,
+            ))
         }
     }
     println!("ident: {} remains: \"{}\"", identifier, remains);
     // 继续去掉空格
-    let (mut remains, _) = whitespace()(remains).unwrap();
-
+    let (mut remains, _) = whitespace()(remains)?;
     let mut ty: Option<ParseObj> = None;
     let colon_res = parse_char(':')(remains.clone());
     println!("colon_res: {:?}", colon_res);
+
+    // 解析变量的类型值
     match colon_res {
         Ok((r, ParseObj::Char(':'))) => {
-            let ty_res = expr(r).unwrap();
+            let ty_res = expr(r)?;
             remains = ty_res.0;
             ty = Some(ty_res.1);
         }
         _ => {}
     }
-
-    let (remains, _) = parse_char('=')(remains)?;
     let (remains, _) = whitespace()(remains)?;
-    println!("remains: \"{}\"", remains);
-    let (remains, e) = expr(remains)?;
     println!("expr: {:?} remains: \"{}\"", e, remains);
     return Ok((
         remains,

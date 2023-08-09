@@ -107,7 +107,6 @@ fn any_whitespace() -> impl Fn(String) -> ParseResult {
     let sp = parse_char(' ');
     let tab = parse_char('\t');
     let newline = parse_char('\n');
-
     return any_of(vec![sp, tab, newline]);
 }
 
