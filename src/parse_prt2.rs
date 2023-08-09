@@ -98,6 +98,61 @@ fn whitespace() -> impl Fn(String) -> ParseResult {
     return zero_or_more(any_whitespace());
 }
 
+fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        let mut result = Vec::new();
+        match parser(input.clone()) {
+            Ok((remains, parsedObj)) => {
+                input = remains;
+                result.push(parsedObj);
+            }
+            Err(err) => {
+                return Err(err);
+            }
+        }
+
+        while let Ok((remains, parsedObj)) = parser(input.clone()) {
+            input = remains;
+            result.push(parsedObj);
+        }
+
+        return ParseResult::Ok((input.clone(), ParseObj::List(result)));
+    };
+}
+
+fn ident(input: String) -> ParseResult {
+    match one_or_more(parse_chars(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_",
+    ))(input)
+    {
+        Ok((remains, parsedObj)) => {
+            let name = String::new();
+            for po in parsedObj {
+                match po {
+                    ParseObj::Char(c) => name.push(c),
+                    _ => {
+                        return Err(ParseErr::Unexpected(
+                            "a char".to_string(),
+                            format!("{:?}", po),
+                            0,
+                        ))
+                    }
+                }
+            }
+
+            return Ok((remains, ParseObj::ident(name)));
+        }
+        Ok((_, obj)) => {
+            return Err(ParseErr::Unexpected(
+                "list of chars".to_string(),
+                format!("{:?}", obj),
+                0,
+            ))
+        }
+        Err(err) => Err(err),
+    }
+}
+
 fn decl(mut input: String) {
     // 线性从左至右解析
 
@@ -105,6 +160,29 @@ fn decl(mut input: String) {
     let (remains, _) = whitespace()(input.clone()).unwrap();
 
     println!("whitespace remains{:?}", remains);
+
+    let (remains, obj) = ident(remains).unwrap();
+
+    println!("ident remains{:?}", remains);
+    let mut identifier = "".to_string();
+    match obj {
+      ParseObj::Ident(i) => identifier = i,
+      _ => {
+          // return Err(ParseErr::Unexpected(
+          //     "ident".to_string(),
+          //     format!("{:?}", obj),
+          //     0,
+          // ))
+      }
+    } 
+
+      println!("ident: {} remains: \"{}\"", identifier, remains);
+    // 继续去掉空格
+    let (mut remains, _) = whitespace()(remains).unwrap();
+
+    let mut ty:Option<ParseObj> = None;
+    
+
 }
 
 #[test]
