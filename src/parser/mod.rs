@@ -246,7 +246,7 @@ fn expr(input: String) -> ParseResult {
     // int, uint, float
     // fn_call
     // fn_def
-    // if
+
     let parsers: Vec<fn(String) -> Result<(String, ParseObj), ParseErr>> = vec![bool, ident];
     return any_of(parsers)(input);
 }
