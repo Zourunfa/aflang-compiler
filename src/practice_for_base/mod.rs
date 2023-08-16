@@ -173,6 +173,32 @@ fn divide(numerator: i32, denominator: i32) -> Option<f64> {
     }
 }
 
+
+
+// 宏
+macro_rules! say_hello{
+  ()=>{
+    println!("Hello, world!");
+  }
+}
+
+// 带参数的宏
+macro_rules! greet{
+  ($name:expr)=>{
+    println!("hello {}", $name);
+  }
+}
+
+macro_rules! repeat_println{
+  ($test:expr, $count:expr) =>{
+    $(
+      println("{}",$test)
+    )
+  }
+}
+
+
+
 #[test]
 fn Result_Options_test() {
     match open_file("non_existent_file.txt") {
@@ -204,4 +230,11 @@ fn test_divide() {
         Some(result) => println!("result: {:?}", result),
         None => println!("denominator cannot be zero"),
     }
+}
+
+#[test]
+
+fn test_macro(){
+  say_hello!();
+  repeat_println!("Hello", 3);
 }
