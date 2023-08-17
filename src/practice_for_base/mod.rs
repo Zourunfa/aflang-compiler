@@ -1,5 +1,5 @@
 // Box指针练习
-
+use std::collections::HashMap;
 /**
  * box是一个智能指针，用于在堆上分配内存，并持有其数据
  * 她允许你在编译时知道数据的大小，并且拥有所有权，而不需要
@@ -197,6 +197,9 @@ macro_rules! repeat_println{
   }
 }
 
+// HashMap
+
+
 
 
 #[test]
@@ -237,4 +240,25 @@ fn test_divide() {
 fn test_macro(){
   say_hello!();
   repeat_println!("Hello", 3);
+}
+
+
+#[test]
+fn test_hash_map(){
+  let mut word_count:HashMap<String,u32> = HashMap::new();
+
+  for word in text.split_whitespace(){
+    // 对当前单词使用entry()方法，该方法返回一个Entry枚举值，
+    // 它表示HashMap中的一个条目。如果这个单词已经存在于HashMap中，
+    // entry()方法将返回已存在的条目，否则将会插入一个新的条目。
+    // 使用or_insert(0)方法，
+    // 如果这个单词不存在，它会插入一个值为0的新条目，并返回对应的可变引用
+    let entry = word_count.entry(word.to_string()).or_insert(0);
+    *entry += 1;
+  }
+     // 打印单词和对应的出现次数
+  for (word, count) in &word_count {
+      println!("Word: {}, Count: {}", word, count);
+  }
+
 }
