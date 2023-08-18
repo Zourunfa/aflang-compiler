@@ -112,7 +112,16 @@ fn whitespace() -> impl Fn(String) -> ParseResult {
     return zero_or_more(any_whitespace());
 }
 
+/**
+闭包在 Rust 中类似于函数，但有一个特殊的能力，
+即可以捕获其所在环境的变量，使其在闭包内部可用。在这里，
+闭包 |c| parse_char(c) 捕获了外部的字符 c，并将其传递给 parse_char 函数，
+从而生成了针对每个字符的解析器。因为闭包捕获了 c，
+所以即使在闭包外部 c 的作用域结束后，闭包仍然可以使用 c 来生成解析器。
+*/
+
 fn parse_chars(chars: &str) -> impl Fn(String) -> ParseResult {
+    // println!("chars.chars().map(|c| parse_char {:?}", chars.chars().map(|c| parse_char(c)));
     let parsers = chars.chars().map(|c| parse_char(c)).collect();
     return any_of(parsers);
 }
@@ -208,7 +217,6 @@ fn expr(input: String) -> ParseResult {
 }
 
 fn decl(mut input: String) -> ParseResult {
-    // ident: expr = expr;
     // 1.去掉前面的换行空格和缩进
     let (remains, _) = whitespace()(input.clone())?;
 
@@ -243,10 +251,7 @@ fn decl(mut input: String) -> ParseResult {
         }
         _ => {}
     }
-    let (remains, _) = parse_char('=')(remains)?;
     let (remains, _) = whitespace()(remains)?;
-    println!("remains: \"{}\"", remains);
-    let (remains, e) = expr(remains)?;
     println!("expr: {:?} remains: \"{}\"", e, remains);
     return Ok((
         remains,
