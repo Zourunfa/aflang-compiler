@@ -193,6 +193,19 @@ Cargo 会给我们的包创建一个 Cargo.toml 文件。查看 Cargo.toml 的�
 一个包可以拥有多个二进制 crate：每个 src/bin 下的文件都会被编译成一个独立的二进制 crate。
 */
 
+/**
+ * Option 枚举和其相对于空值的优势
+
+ 问题不在于概念而在于具体的实现。为此，Rust 并没有空值，不过它确实拥有一个可以编码存在或不存在概念的枚举。这个枚举是 Option<T>
+ 空值的问题在于当你尝试像一个非空值那样使用一个空值，会出现某种形式的错误。因为空和非空的属性无处不在，非常容易出现这类错误。
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+https://rustwiki.org/zh-CN/std/option/enum.Option.html
+ */
+
 #[test]
 fn Result_Options_test() {
     match open_file("non_existent_file.txt") {
