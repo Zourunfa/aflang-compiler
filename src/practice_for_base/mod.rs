@@ -195,7 +195,56 @@ macro_rules! repeat_println{
 
 
 
+// 变量与数据交互的方式（一）：移动
 
+fn main() {
+  let s1 = String::from("hello");
+  let s2 = s1;
+
+  println!("{}, world!", s1);
+}
+// 你会得到一个类似如下的错误，因为 Rust 禁止你使用无效的引用。
+// $ cargo run
+//    Compiling ownership v0.1.0 (file:///projects/ownership)
+// error[E0382]: borrow of moved value: `s1`
+//  --> src/main.rs:5:28
+//   |
+// 2 |     let s1 = String::from("hello");
+//   |         -- move occurs because `s1` has type `String`, which does not implement the `Copy` trait
+// 3 |     let s2 = s1;
+//   |              -- value moved here
+// 4 | 
+// 5 |     println!("{}, world!", s1);
+//   |                            ^^ value borrowed here after move
+
+// For more information about this error, try `rustc --explain E0382`.
+// error: could not compile `ownership` due to previous error
+
+
+
+// 变量与数据交互的方式（二）：克隆
+fn main() {
+  let s1 = String::from("hello");
+  let s2 = s1.clone();
+
+  println!("s1 = {}, s2 = {}", s1, s2);
+}
+// 这段代码能正常运行，并且明确产生图 4-3 中行为，这里堆上的数据 确实 被复制了。
+
+
+
+// 只在栈上的数据：拷贝
+
+fn main() {
+  let x = 5;
+  let y = x;
+
+  println!("x = {}, y = {}", x, y);
+}
+// 但这段代码似乎与我们刚刚学到的内容相矛盾：没有调用 clone，不过 x 依然有效且没有被移动到 y 中。
+
+// 原因是像整型这样的在编译时已知大小的类型被整个存储在栈上，所以拷贝其实际的值是快速的。这意味着没有理由在创建变量 y 后使 x 无效。换句话说，这里没有深浅拷贝的区别，
+// 所以这里调用 clone 并不会与通常的浅拷贝有什么不同，我们可以不用管它。
 #[test]
 fn Result_Options_test() {
     match open_file("non_existent_file.txt") {
