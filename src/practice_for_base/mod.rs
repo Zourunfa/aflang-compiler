@@ -245,6 +245,77 @@ fn main() {
 
 // 原因是像整型这样的在编译时已知大小的类型被整个存储在栈上，所以拷贝其实际的值是快速的。这意味着没有理由在创建变量 y 后使 x 无效。换句话说，这里没有深浅拷贝的区别，
 // 所以这里调用 clone 并不会与通常的浅拷贝有什么不同，我们可以不用管它。
+
+
+// 所有权与函数
+// 将值传递给函数在语义上与给变量赋值相似。向函数传递值可能会移动或者复制，就像赋值语句一样。
+// 示例 4-3 使用注释展示变量何时进入和离开作用域：
+
+fn main() {
+  let s = String::from("hello");  // s 进入作用域
+
+  takes_ownership(s);             // s 的值移动到函数里 ...
+                                  // ... 所以到这里不再有效
+
+  let x = 5;                      // x 进入作用域
+
+  makes_copy(x);                  // x 应该移动函数里，
+                                  // 但 i32 是 Copy 的，所以在后面可继续使用 x
+
+} // 这里, x 先移出了作用域，然后是 s。但因为 s 的值已被移走，
+  // 所以不会有特殊操作
+
+fn takes_ownership(some_string: String) { // some_string 进入作用域
+  println!("{}", some_string);
+} // 这里，some_string 移出作用域并调用 `drop` 方法。占用的内存被释放
+
+fn makes_copy(some_integer: i32) { // some_integer 进入作用域
+  println!("{}", some_integer);
+} // 这里，some_integer 移出作用域。不会有特殊操作
+
+// 示例 4-3：带有所有权和作用域注释的函数
+// 当尝试在调用 takes_ownership 后使用 s 时，Rust 会抛出一个编译时错误。
+// 这些静态检查使我们免于犯错。试试在 main 函数中添加使用 s 和 x 的代码来看看哪里能使用他们，
+// 以及所有权规则会在哪里阻止我们这么做。
+
+
+// 返回值与作用域
+
+// 返回值也可以转移所有权。示例 4-4 与示例 4-3 一样带有类似的注释。
+fn main() {
+  let s1 = gives_ownership();         // gives_ownership 将返回值
+                                      // 移给 s1
+
+  let s2 = String::from("hello");     // s2 进入作用域
+
+  let s3 = takes_and_gives_back(s2);  // s2 被移动到
+                                      // takes_and_gives_back 中,
+                                      // 它也将返回值移给 s3
+} // 这里, s3 移出作用域并被丢弃。s2 也移出作用域，但已被移走，
+  // 所以什么也不会发生。s1 移出作用域并被丢弃
+
+fn gives_ownership() -> String {           // gives_ownership 将返回值移动给
+                                           // 调用它的函数
+
+  let some_string = String::from("yours"); // some_string 进入作用域
+
+  some_string                              // 返回 some_string 并移出给调用的函数
+}
+
+// takes_and_gives_back 将传入字符串并返回该值
+fn takes_and_gives_back(a_string: String) -> String { // a_string 进入作用域
+
+  a_string  // 返回 a_string 并移出给调用的函数
+}
+
+// 示例 4-4: 转移返回值的所有权
+
+// 变量的所有权总是遵循相同的模式：将值赋给另一个变量时移动它。当持有堆中数据值的变量离开作用域时，
+// 其值将通过 drop 被清理掉，除非数据被移动为另一个变量所有。
+// 在每一个函数中都获取所有权并接着返回所有权有些啰嗦。如果我们想要函数使用一个值但不获取所有权该怎么办呢？
+// 如果我们还要接着使用它的话，每次都传进去再返回来就有点烦人了，除此之外，我们也可能想返回函数体中产生的一些数据。
+// 我们可以使用元组来返回多个值，如示例 4-5 所示。
+
 #[test]
 fn Result_Options_test() {
     match open_file("non_existent_file.txt") {
