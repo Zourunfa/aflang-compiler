@@ -285,9 +285,7 @@ fn makes_copy(some_integer: i32) { // some_integer 进入作用域
 fn main() {
   let s1 = gives_ownership();         // gives_ownership 将返回值
                                       // 移给 s1
-
   let s2 = String::from("hello");     // s2 进入作用域
-
   let s3 = takes_and_gives_back(s2);  // s2 被移动到
                                       // takes_and_gives_back 中,
                                       // 它也将返回值移给 s3
@@ -296,15 +294,12 @@ fn main() {
 
 fn gives_ownership() -> String {           // gives_ownership 将返回值移动给
                                            // 调用它的函数
-
   let some_string = String::from("yours"); // some_string 进入作用域
-
   some_string                              // 返回 some_string 并移出给调用的函数
 }
 
 // takes_and_gives_back 将传入字符串并返回该值
 fn takes_and_gives_back(a_string: String) -> String { // a_string 进入作用域
-
   a_string  // 返回 a_string 并移出给调用的函数
 }
 
@@ -315,6 +310,40 @@ fn takes_and_gives_back(a_string: String) -> String { // a_string 进入作用�
 // 在每一个函数中都获取所有权并接着返回所有权有些啰嗦。如果我们想要函数使用一个值但不获取所有权该怎么办呢？
 // 如果我们还要接着使用它的话，每次都传进去再返回来就有点烦人了，除此之外，我们也可能想返回函数体中产生的一些数据。
 // 我们可以使用元组来返回多个值，如示例 4-5 所示。
+
+
+
+
+// Rust 借用所有权 Borrowing / 引用
+// 堆（ heap ） 上分配的变量都有所有权。
+
+/**
+ * 使用的过程中，我就一直在想，为什么不多支持一个 借用所有权 或者 租借所有权 的概念呢 ？
+
+把具有所有权的变量传递给函数作为参数时，就是临时出租所有权，
+当函数执行完后就会自动收回所有权。就像现实生活中，
+我可以把某个工具临时借用给其它人，当他们使用完了之后还给我们就可以了。
+
+
+Rust 支持对所有权的 出借 borrowing。当把一个具有所有权的变量传递给函数时，
+就是把所有权借用给函数的参数，当函数返回后则自动收回所有权。
+
+
+下面的代码，我们并没有使用上一章节的 所有权 转让规则收回所有权，所以程序会报错
+
+
+fn main(){
+
+    let v = vec![10,20,30]; // 声明一个向量，变量 v 具有数据的所有权
+    print_vector(v);
+    println!("{}",v[0]);    // 这行会报错
+}
+
+fn print_vector(x:Vec<i32>){
+    println!("Inside print_vector function {:?}",x);
+}
+ * 
+ */
 
 #[test]
 fn Result_Options_test() {
