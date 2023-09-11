@@ -342,6 +342,91 @@ fn main(){
 fn print_vector(x:Vec<i32>){
     println!("Inside print_vector function {:?}",x);
 }
+
+&s1 语法让我们创建一个 指向 值 s1 的引用，但是并不拥有它。
+因为并不拥有这个值，所以当引用停止使用时，它所指向的值也不会被丢弃。
+
+变量 s 有效的作用域与函数参数的作用域一样，不过当引用停止使用时并不丢弃它指向的数据，因为我们没有所有权。
+当函数使用引用而不是实际值作为参数，无需返回值来交还所有权，因为就不曾拥有所有权。
+
+我们将创建一个引用的行为称为 借用（borrowing）。正如现实生活中，
+如果一个人拥有某样东西，你可以从他那里借来。当你使用完毕，必须还回去。
+
+我们将创建一个引用的行为称为 借用（borrowing）。正如现实生活中，
+如果一个人拥有某样东西，你可以从他那里借来。当你使用完毕，必须还回去。
+
+
+如果我们尝试修改借用的变量呢？剧透：这行不通！
+fn main() {
+    let s = String::from("hello");
+
+    change(&s);
+}
+
+fn change(some_string: &String) {
+    some_string.push_str(", world"); //报错
+}
+
+正如变量在默认情况下是不可变的一样，引用也是不可变的。我们无法通过引用修改内容。
+
+可变引用
+
+fn main() {
+    let mut s = String::from("hello");
+
+    change(&mut s);
+}
+
+fn change(some_string: &mut String) {
+    some_string.push_str(", world");
+}
+
+我们通过一个小调整就能修复示例
+
+fn main() {
+    let mut s = String::from("hello");
+
+    change(&mut s);
+}
+
+fn change(some_string: &mut String) {
+    some_string.push_str(", world");
+}
+
+先，我们必须将 s 改为 mut。然后必须在调用 change 函数的地方创建一个可变引用 &mut s，并更新函数签名以接受一个可变引用 some_string: &mut String。这就非常清楚地表明，change 函数将改变它所借用的值。
+
+不过可变引用有一个很大的限制：在同一时间，只能有一个对某一特定数据的可变引用。尝试创建两个可变引用的代码将会失败：
+
+fn main() {
+    let mut s = String::from("hello");
+    let r1 = &mut s;
+    let r2 = &mut s; 报错
+    println!("{}, {}", r1, r2);
+}
+这个报错说这段代码是无效的，因为我们不能在同一时间多次将 s 作为可变变量借用。
+第一个可变的借入在 r1 中，并且必须持续到在 println! 中使用它，但是在那个可变引用的创建和它的使用之间，
+我们又尝试在 r2 中创建另一个可变引用，它借用了与 r1 相同的数据。
+
+防止同一时间对同一数据进行多个可变引用的限制允许可变性，不过是以一种受限制的方式允许。
+新 Rustacean 们经常难以适应这一点，因为大部分语言中变量任何时候都是可变的。
+
+这个限制的好处是 Rust 可以在编译时就避免数据竞争。数据竞争（data race）类似于竞态条件，它由这三个行为造成：
+两个或更多指针同时访问同一数据。
+至少有一个指针被用来写入数据。
+没有同步数据访问的机制。
+
+以上三个行为同时发生才会造成数据竞争，而不是单一行为。
+
+fn main() {
+    let mut s = String::from("hello");
+
+    {
+        let r1 = &mut s;
+    } // r1 在这里离开了作用域，所以我们完全可以创建一个新的引用
+
+    let r2 = &mut s;
+}
+
  * 
  */
 
