@@ -475,9 +475,7 @@ fn main() {
 }
 
 fn dangle() -> &String { // dangle 返回一个字符串的引用
-
     let s = String::from("hello"); // s 是一个新字符串
-
     &s // 返回字符串 s 的引用  
 } // 这里 s 离开作用域并被丢弃。其内存被释放。
   // 危险！ 会报错
@@ -488,6 +486,28 @@ fn dangle() -> &String { // dangle 返回一个字符串的引用
 
 在任意给定时间，要么 只能有一个可变引用，要么 只能有多个不可变引用。
 引用必须总是有效的。
+
+
+切片 Slice 类型
+另一个没有所有权的数据类型是 slice。
+slice 允许你引用集合中一段连续的元素序列，而不用引用整个集合。
+
+
+
+fn first_word(s: &String) -> &str {
+    let bytes = s.as_bytes();
+
+    for (i, &item) in bytes.iter().enumerate() {
+        if item == b' ' {
+            return &s[0..i];
+        }
+    }
+
+    &s[..]
+}
+
+fn main() {}
+
  * 
  */
 
