@@ -1,5 +1,5 @@
 // Box指针练习
-
+use std::collections::HashMap;
 /**
  * box是一个智能指针，用于在堆上分配内存，并持有其数据
  * 她允许你在编译时知道数据的大小，并且拥有所有权，而不需要
@@ -288,6 +288,154 @@ fn calculate_length(s: &String) -> usize {
     s.len()
 }
 
+
+// 宏
+macro_rules! say_hello{
+  ()=>{
+    println!("Hello, world!");
+  }
+}
+
+// 带参数的宏
+macro_rules! greet{
+  ($name:expr)=>{
+    println!("hello {}", $name);
+  }
+}
+
+macro_rules! repeat_println{
+  ($test:expr, $count:expr) =>{
+    $(
+      println("{}",$test)
+    )
+  }
+}
+
+// HashMap
+
+
+
+// 变量与数据交互的方式（一）：移动
+
+fn main() {
+  let s1 = String::from("hello");
+  let s2 = s1;
+
+  println!("{}, world!", s1);
+}
+// 你会得到一个类似如下的错误，因为 Rust 禁止你使用无效的引用。
+// $ cargo run
+//    Compiling ownership v0.1.0 (file:///projects/ownership)
+// error[E0382]: borrow of moved value: `s1`
+//  --> src/main.rs:5:28
+//   |
+// 2 |     let s1 = String::from("hello");
+//   |         -- move occurs because `s1` has type `String`, which does not implement the `Copy` trait
+// 3 |     let s2 = s1;
+//   |              -- value moved here
+// 4 | 
+// 5 |     println!("{}, world!", s1);
+//   |                            ^^ value borrowed here after move
+
+// For more information about this error, try `rustc --explain E0382`.
+// error: could not compile `ownership` due to previous error
+
+
+
+// 变量与数据交互的方式（二）：克隆
+fn main() {
+  let s1 = String::from("hello");
+  let s2 = s1.clone();
+
+  println!("s1 = {}, s2 = {}", s1, s2);
+}
+// 这段代码能正常运行，并且明确产生图 4-3 中行为，这里堆上的数据 确实 被复制了。
+
+
+
+// 只在栈上的数据：拷贝
+
+fn main() {
+  let x = 5;
+  let y = x;
+
+  println!("x = {}, y = {}", x, y);
+}
+// 但这段代码似乎与我们刚刚学到的内容相矛盾：没有调用 clone，不过 x 依然有效且没有被移动到 y 中。
+
+// 原因是像整型这样的在编译时已知大小的类型被整个存储在栈上，所以拷贝其实际的值是快速的。这意味着没有理由在创建变量 y 后使 x 无效。换句话说，这里没有深浅拷贝的区别，
+// 所以这里调用 clone 并不会与通常的浅拷贝有什么不同，我们可以不用管它。
+
+
+// 所有权与函数
+// 将值传递给函数在语义上与给变量赋值相似。向函数传递值可能会移动或者复制，就像赋值语句一样。
+// 示例 4-3 使用注释展示变量何时进入和离开作用域：
+
+fn main() {
+  let s = String::from("hello");  // s 进入作用域
+
+  takes_ownership(s);             // s 的值移动到函数里 ...
+                                  // ... 所以到这里不再有效
+
+  let x = 5;                      // x 进入作用域
+
+  makes_copy(x);                  // x 应该移动函数里，
+                                  // 但 i32 是 Copy 的，所以在后面可继续使用 x
+
+} // 这里, x 先移出了作用域，然后是 s。但因为 s 的值已被移走，
+  // 所以不会有特殊操作
+
+fn takes_ownership(some_string: String) { // some_string 进入作用域
+  println!("{}", some_string);
+} // 这里，some_string 移出作用域并调用 `drop` 方法。占用的内存被释放
+
+fn makes_copy(some_integer: i32) { // some_integer 进入作用域
+  println!("{}", some_integer);
+} // 这里，some_integer 移出作用域。不会有特殊操作
+
+// 示例 4-3：带有所有权和作用域注释的函数
+// 当尝试在调用 takes_ownership 后使用 s 时，Rust 会抛出一个编译时错误。
+// 这些静态检查使我们免于犯错。试试在 main 函数中添加使用 s 和 x 的代码来看看哪里能使用他们，
+// 以及所有权规则会在哪里阻止我们这么做。
+
+
+// 返回值与作用域
+
+// 返回值也可以转移所有权。示例 4-4 与示例 4-3 一样带有类似的注释。
+fn main() {
+  let s1 = gives_ownership();         // gives_ownership 将返回值
+                                      // 移给 s1
+
+  let s2 = String::from("hello");     // s2 进入作用域
+
+  let s3 = takes_and_gives_back(s2);  // s2 被移动到
+                                      // takes_and_gives_back 中,
+                                      // 它也将返回值移给 s3
+} // 这里, s3 移出作用域并被丢弃。s2 也移出作用域，但已被移走，
+  // 所以什么也不会发生。s1 移出作用域并被丢弃
+
+fn gives_ownership() -> String {           // gives_ownership 将返回值移动给
+                                           // 调用它的函数
+
+  let some_string = String::from("yours"); // some_string 进入作用域
+
+  some_string                              // 返回 some_string 并移出给调用的函数
+}
+
+// takes_and_gives_back 将传入字符串并返回该值
+fn takes_and_gives_back(a_string: String) -> String { // a_string 进入作用域
+
+  a_string  // 返回 a_string 并移出给调用的函数
+}
+
+// 示例 4-4: 转移返回值的所有权
+
+// 变量的所有权总是遵循相同的模式：将值赋给另一个变量时移动它。当持有堆中数据值的变量离开作用域时，
+// 其值将通过 drop 被清理掉，除非数据被移动为另一个变量所有。
+// 在每一个函数中都获取所有权并接着返回所有权有些啰嗦。如果我们想要函数使用一个值但不获取所有权该怎么办呢？
+// 如果我们还要接着使用它的话，每次都传进去再返回来就有点烦人了，除此之外，我们也可能想返回函数体中产生的一些数据。
+// 我们可以使用元组来返回多个值，如示例 4-5 所示。
+
 #[test]
 fn Result_Options_test() {
     match open_file("non_existent_file.txt") {
@@ -320,3 +468,171 @@ fn test_divide() {
         None => println!("denominator cannot be zero"),
     }
 }
+
+#[test]
+
+fn test_macro(){
+  say_hello!();
+  repeat_println!("Hello", 3);
+}
+
+
+#[test]
+fn test_hash_map(){
+  let mut word_count:HashMap<String,u32> = HashMap::new();
+
+  for word in text.split_whitespace(){
+    // 对当前单词使用entry()方法，该方法返回一个Entry枚举值，
+    // 它表示HashMap中的一个条目。如果这个单词已经存在于HashMap中，
+    // entry()方法将返回已存在的条目，否则将会插入一个新的条目。
+    // 使用or_insert(0)方法，
+    // 如果这个单词不存在，它会插入一个值为0的新条目，并返回对应的可变引用
+    let entry = word_count.entry(word.to_string()).or_insert(0);
+    *entry += 1;
+  }
+     // 打印单词和对应的出现次数
+  for (word, count) in &word_count {
+      println!("Word: {}, Count: {}", word, count);
+  }
+
+}
+/**
+ 
+ ← Rust 常量Rust 运算符 →
+Rust 字符串
+Rust 语言提供了两种字符串
+
+字符串字面量 &str。它是 Rust 核心内置的数据类型。
+
+字符串对象 String。它不是 Rust 核心的一部分，只是 Rust 标准库中的一个 公开 pub 结构体
+
+← Rust 常量Rust 运算符 →
+Rust 字符串
+Rust 语言提供了两种字符串
+
+字符串字面量 &str。它是 Rust 核心内置的数据类型。
+
+字符串对象 String。它不是 Rust 核心的一部分，只是 Rust 标准库中的一个 公开 pub 结构体。
+
+字符串字面量 &str
+字符串字面量 &str 就是在 编译时 就知道其值的字符串类型，是 Rust 语言核心的一部分。
+
+字符串字面量 &str 是字符的集合，被硬编码赋值给一个变量。
+
+Rust 中的字符串字面量被称之为 字符串切片。因为它的底层实现是 切片。
+字符串字面量模式是 静态 的。 这就意味着字符串字面量从创建时开始会一直保存到程序结束。
+
+
+字符串对象
+
+字符串对象
+字符串对象是 Rust 标准库提供的内建类型。
+
+与字符串字面量不同的是：字符串对象并不是 Rust 核心内置的数据类型，它只是标准库中的一个 公开 pub 的结构体。
+
+字符串对象在标准库中的定义语法如下
+
+pub struct String
+字符串对象是是一个 长度可变的集合，它是 可变 的而且使用 UTF-8 作为底层数据编码格式。
+
+字符串对象在 堆 heap 中分配，可以在运行时提供字符串值以及相应的操作方法。
+
+创建字符串对象的语法
+要创建一个字符串对象，有两种方法：
+
+一种是创建一个新的空字符串，使用 String::new() 静态方法
+
+String::new()
+另一种是根据指定的字符串字面量来创建字符串对象，使用 String::from() 方法
+
+String::from()
+范例
+
+ */
+
+/**
+Rust ownership
+编程语言把内存分为两大类：
+
+栈 stack
+堆 heap
+当然了，这两种分类并没有对实际的内存做什么，只是把系统分给应用程序的内存标识为上面的两大类而已
+
+
+ust 语言中每一值都有一个对应的变量，这个变量就成为这个值的 所有者。从某些方面说，定义一个变量就是为这个变量和它存储的数据定义一种所有者管理，声明这个值由这个变量所有。
+
+例如，对于 let age = 30 这条语句，相当于声明 30 这个值由变量 age 所有。
+任何东西只有一个所有者，Rust 中是不允许有共同所有者这个概念的。
+
+Rust 中，任何特定时刻，一个数据只能有一个所有者。
+
+Rust 中，不允许两个变量同时指向同一块内存区域。变量必须指向不同的内存区域。
+
+
+转让所有权
+既然所有权就是一个东西属不属于你，你有没有权力随意处理它，比如送人，比如扔掉。
+那么转让所有权就会时不时的发生。
+Rust 语言中转让所有权的方式有以下几种：
+
+  把一个变量赋值给另一个变量。重要
+  把变量传递给函数作为参数。
+  函数中返回一个变量作为返回值。
+
+接下来我们分别对这三种方式做详细的介绍
+
+把一个变量赋值给另一个变量
+fn main(){
+
+   // 向量 v 拥有堆上数据的所有权
+   // 每次只能有一个变量对堆上的数据拥有所有权
+   let v = vec![1,2,3]; 
+
+
+   // 赋值会导致两个变量都对同一个数据拥有所有权
+   // 因为两个变量指向了相同的内存块
+   let v2 = v; 
+
+   // Rust 会检查两个变量是否同时拥有堆上内存块的所有权。
+   // 如果发生所有权竞争，它会自动将所有权判给给新的变量
+   // 运行出错，因为 v 不再拥有数据的所有权
+   println!("{:?}",v);
+}
+上面的代码中我们首先声明了一个向量 v。所有权的概念是只有一个变量绑定到资源，v 绑定到资源或 v2 绑定到资源。
+
+上面的代码会发生编译错误 use of moved value: v。这是因为赋值操作会将资源的所有权转移到了
+
+
+
+把变量传递给函数作为参数
+
+fn main(){
+   let v = vec![1,2,3];     // 向量 v 拥有堆上数据的所有权
+   let v2 = v;              // 向量 v 将所有权转让给 v2
+   display(v2);             // v2 将所有权转让给函数参数 v ，v2 将变得不可用
+   println!("In main {:?}",v2);    // v2 变得不可用
+}
+fn display(v:Vec<i32>){
+   println!("inside display {:?}",v);
+}
+inside display [1, 2, 3]
+
+
+函数中返回一个变量作为返回值
+fn main(){
+   let v = vec![1,2,3];       // 向量 v 拥有堆上数据的所有权
+   let v2 = v;                // 向量 v 将所有权转让给 v2
+   let v2_return = display(v2);    
+   println!("In main {:?}",v2_return);
+}
+
+fn display(v:Vec<i32>)-> Vec<i32> { 
+   // 返回同一个向量
+   println!("inside display {:?}",v);
+   return v;
+}
+
+编译运行上面的 Rust 代码，输出结果如下
+inside display [1, 2, 3]
+In main [1, 2, 3]
+
+ */
