@@ -801,4 +801,46 @@ note: Run with `RUST_BACKTRACE=1` for a backtrace.
 这指向了一个不是我们编写的文件，libcore/slice/mod.rs。其为 Rust 源码中 slice 的实现。这是当对 vector v 使用 [] 时 libcore/slice/mod.rs 中会执行的代码，也是真正出现 panic! 的地方。
 
 接下来的几行提醒我们可以设置 RUST_BACKTRACE 环境变量来得到一个 backtrace。backtrace 是一个执行到目前位置所有被调用的函数的列表。Rust 的 backtrace 跟其他语言中的一样：阅读 backtrace 的关键是从头开始读直到发现你编写的文件。这就是问题的发源地。这一行往上是你的代码所调用的代码；往下则是调用你的代码的代码。这些行可能包含核心 Rust 代码，标准库代码或用到的 crate 代码。让我们将 RUST_BACKTRACE 环境变量设置为任何不是 0 的值来获取 backtrace 看看。
+
+
+
+Result 与可恢复的错误
+大部分错误并没有严重到需要程序完全停止执行。有时，一个函数会因为一个容易理解并做出反应的原因失败。例如，如果因为打开一个并不存在的文件而失败，此时我们可能想要创建这个文件，而不是终止进程。
+
+回忆一下第 2 章 “使用 Result 类型来处理潜在的错误” 部分中的那个 Result 枚举，它定义有如下两个成员，Ok 和 Err：
+
+
+#![allow(unused)]
+fn main() {
+enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+}
+
+T 和 E 是泛型类型参数；第 10 章会详细介绍泛型。现在你需要知道的就是 T 代表成功时返回的 Ok 成员中的数据的类型，而 E 代表失败时返回的 Err 成员中的错误的类型。
+因为 Result 有这些泛型类型参数，我们可以将 Result 类型和标准库中为其定义的函数用于很多不同的场景，这些情况中需要返回的成功值和失败值可能会各不相同。
+
+
+use std::fs::File;
+
+fn main() {
+    let f = File::open("hello.txt");
+}
+如何知道 File::open 返回一个 Result 呢？我们可以查看 标准库 API 文档，
+或者可以直接问编译器！如果给 f 某个我们知道 不是 函数返回值类型的类型标注，接着尝试编译代码，编译器会告诉我们类型不匹配。
+然后错误信息会告诉我们 f 的类型 应该 是什么。让我们试试！我们知道 File::open 的返回值不是 u32 类型的，所以将 let f 语句改为如下：
+
+let f: u32 = File::open("hello.txt");
+
+error[E0308]: mismatched types
+ --> src/main.rs:4:18
+  |
+4 |     let f: u32 = File::open("hello.txt");
+  |                  ^^^^^^^^^^^^^^^^^^^^^^^ expected u32, found enum
+`std::result::Result`
+  |
+  = note: expected type `u32`
+             found type `std::result::Result<std::fs::File, std::io::Error>`
+
 */
