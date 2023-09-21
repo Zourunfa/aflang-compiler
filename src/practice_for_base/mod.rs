@@ -843,4 +843,11 @@ error[E0308]: mismatched types
   = note: expected type `u32`
              found type `std::result::Result<std::fs::File, std::io::Error>`
 
+
+
+匹配不同的错误
+示例 9-4 中的代码不管 File::open 是因为什么原因失败都会 panic!。
+我们真正希望的是对不同的错误原因采取不同的行为：如果 File::open 因为文件不存在而失败，
+我们希望创建这个文件并返回新文件的句柄。如果 File::open 因为任何其他原因失败，例如没有打开文件的权限，我们仍然希望像示例 9-4 那样 panic!。
+让我们看看示例 9-5，其中 match 增加了另一个分支：
 */
