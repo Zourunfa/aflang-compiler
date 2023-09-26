@@ -582,6 +582,83 @@ arch	isize	usize
 当你希望将数据分配到栈（stack）而不是堆（heap）时（我们将在第 4 章中进一步讨论栈和堆），或者当你希望确保始终具有固定数量的元素时，数组特别有用。但它们不像 vector（译注：中文字面翻译为“向量”，在 Rust 中意义为“动态数组，可变数组”）类型那么灵活。vector 类型类似于标准库中提供的集合类型，其大小允许增长或缩小。如果不确定是使用数组还是 vector，那就应该使用一个 vector。第 8 章将详细地讨论 vector。
 
 不过当你明确元素数量不需要改变时，数组会更有用。例如，如果你在程序中使用月份的名称，你很可能希望使用的是数组而不是 vector，因为你知道它始终包含 12 个元素：
+
+
+
+泛型数据类型
+当使用泛型定义函数时，本来在函数签名中指定参数和返回值的类型的地方，
+会改用泛型来表示。采用这种技术，使得代码适应性更强，从而为函数的调用者提供更多的功能
+，同时也避免了代码的重复。
+
+函数中定义泛型
+
+fn largest_i32(list: &[i32]) -> i32 {
+    let mut largest = list[0];
+
+    for &item in list.iter() {
+        if item > largest {
+            largest = item;
+        }
+    }
+
+    largest
+}
+
+fn largest_char(list: &[char]) -> char {
+    let mut largest = list[0];
+
+    for &item in list.iter() {
+        if item > largest {
+            largest = item;
+        }
+    }
+
+    largest
+}
+
+fn main() {
+    let number_list = vec![34, 50, 25, 100, 65];
+
+    let result = largest_i32(&number_list);
+    println!("The largest number is {}", result);
+   assert_eq!(result, 100);
+
+    let char_list = vec!['y', 'm', 'a', 'q'];
+
+    let result = largest_char(&char_list);
+    println!("The largest char is {}", result);
+   assert_eq!(result, 'y');
+}
+
+
+使用泛型合并上面两个 函数
+fn largest<T>(list: &[T])->T{
+     let mut largest = list[0];
+
+    for &item in list.iter() {
+        if item > largest {
+            largest = item;
+        }
+    }
+
+    largest
+}
+
+error[E0369]: binary operation `>` cannot be applied to type `T`
+ --> src/main.rs:5:12
+  |
+5 |         if item > largest {
+  |            ^^^^^^^^^^^^^^
+  |
+  = note: an implementation of `std::cmp::PartialOrd` might be
+   missing for `T`
+注释中提到了 std::cmp::PartialOrd，这是一个 trait。下一部分会讲到 trait。
+不过简单来说，这个错误表明 largest 的函数体不能适用于 T 的所有可能的类型。因为在函数体需要比较 T 类型的值，不过它只能用于我们知道如何排序的类型。为了开启比较功能，标准库中定义的 std::cmp::PartialOrd trait 可以实现类型的比较功能（查看附录 C 获取该 trait 的更多信息）。
+
+标准库中定义的 std::cmp::PartialOrd trait 可以实现类型的比较功能。在
+ “trait 作为参数” 部分会讲解如何指定泛型实现特定的 trait，
+ 不过让我们先探索其他使用泛型参数的方法。
+
 */
  * 
  */
