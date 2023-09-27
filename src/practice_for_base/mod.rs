@@ -1197,4 +1197,57 @@ error[E0308]: mismatched types
 我们真正希望的是对不同的错误原因采取不同的行为：如果 File::open 因为文件不存在而失败，
 我们希望创建这个文件并返回新文件的句柄。如果 File::open 因为任何其他原因失败，例如没有打开文件的权限，我们仍然希望像示例 9-4 那样 panic!。
 让我们看看示例 9-5，其中 match 增加了另一个分支：
+
+
+
+trait：定义共享的行为
+trait 告诉 Rust 编译器某个特定类型拥有可能与其他类型共享的功能。
+可以通过 trait 以一种抽象的方式定义共享的行为。
+可以使用 trait bounds 指定泛型是任何拥有特定行为的类型。
+
+
+一个类型的行为由其可供调用的方法构成。如果可以对不同类型调用相同的方法的话，这些类型就可以共享相同的行为了。trait 定义是一种将方法签名组合起来的方法，目的是定义一个实现某些目的所必需的行为的集合。
+
+例如，这里有多个存放了不同类型和属性文本的结构体：结构体 NewsArticle 用于存放发生于世界各地的新闻故事，而结构体 Tweet 最多只能存放 280 个字符的内容，以及像是否转推或是否是对推友的回复这样的元数据。
+
+我们想要创建一个多媒体聚合库用来显示可能储存在 NewsArticle 或
+ Tweet 实例中的数据的总结。每一个结构体都需要的行为是他们是能够被总结的，
+ 这样的话就可以调用实例的 summarize 方法来请求总结。
+示例 中展示了一个表现这个概念的 Summary trait 的定义：
+
+现在我们定义了 Summary trait，
+接着就可以在多媒体聚合库中需要拥有这个行为的类型上实现它了。
+示例展示了 NewsArticle 结构体上 Summary trait 的一个实现，它使用标题、作者和创建的位置作为 summarize 的返回值。对于 Tweet 结构体，我们选择将 summarize 定义为用户名后跟推文的全部文本作为返回值，
+并假设推文内容已经被限制为 280 字符以内。
+
+
+trait Animal {
+    fn make_sound(&self);
+}
+
+struct Dog;
+struct Cat;
+
+impl Animal for Dog {
+    fn make_sound(&self) {
+        println!("汪汪汪！");
+    }
+}
+
+impl Animal for Cat {
+    fn make_sound(&self) {
+        println!("喵喵喵！");
+    }
+}
+
+fn main() {
+    let dog = Dog;
+    let cat = Cat;
+
+    dog.make_sound();
+    cat.make_sound();
+}
+
+
+
 */
