@@ -405,9 +405,7 @@ fn makes_copy(some_integer: i32) { // some_integer 进入作用域
 fn main() {
   let s1 = gives_ownership();         // gives_ownership 将返回值
                                       // 移给 s1
-
   let s2 = String::from("hello");     // s2 进入作用域
-
   let s3 = takes_and_gives_back(s2);  // s2 被移动到
                                       // takes_and_gives_back 中,
                                       // 它也将返回值移给 s3
@@ -416,15 +414,12 @@ fn main() {
 
 fn gives_ownership() -> String {           // gives_ownership 将返回值移动给
                                            // 调用它的函数
-
   let some_string = String::from("yours"); // some_string 进入作用域
-
   some_string                              // 返回 some_string 并移出给调用的函数
 }
 
 // takes_and_gives_back 将传入字符串并返回该值
 fn takes_and_gives_back(a_string: String) -> String { // a_string 进入作用域
-
   a_string  // 返回 a_string 并移出给调用的函数
 }
 
@@ -435,6 +430,358 @@ fn takes_and_gives_back(a_string: String) -> String { // a_string 进入作用�
 // 在每一个函数中都获取所有权并接着返回所有权有些啰嗦。如果我们想要函数使用一个值但不获取所有权该怎么办呢？
 // 如果我们还要接着使用它的话，每次都传进去再返回来就有点烦人了，除此之外，我们也可能想返回函数体中产生的一些数据。
 // 我们可以使用元组来返回多个值，如示例 4-5 所示。
+
+
+
+
+// Rust 借用所有权 Borrowing / 引用
+// 堆（ heap ） 上分配的变量都有所有权。
+
+/**
+ * 使用的过程中，我就一直在想，为什么不多支持一个 借用所有权 或者 租借所有权 的概念呢 ？
+
+把具有所有权的变量传递给函数作为参数时，就是临时出租所有权，
+当函数执行完后就会自动收回所有权。就像现实生活中，
+我可以把某个工具临时借用给其它人，当他们使用完了之后还给我们就可以了。
+
+
+Rust 支持对所有权的 出借 borrowing。当把一个具有所有权的变量传递给函数时，
+就是把所有权借用给函数的参数，当函数返回后则自动收回所有权。
+
+
+下面的代码，我们并没有使用上一章节的 所有权 转让规则收回所有权，所以程序会报错
+
+
+fn main(){
+
+    let v = vec![10,20,30]; // 声明一个向量，变量 v 具有数据的所有权
+    print_vector(v);
+    println!("{}",v[0]);    // 这行会报错
+}
+
+fn print_vector(x:Vec<i32>){
+    println!("Inside print_vector function {:?}",x);
+}
+
+&s1 语法让我们创建一个 指向 值 s1 的引用，但是并不拥有它。
+因为并不拥有这个值，所以当引用停止使用时，它所指向的值也不会被丢弃。
+
+变量 s 有效的作用域与函数参数的作用域一样，不过当引用停止使用时并不丢弃它指向的数据，因为我们没有所有权。
+当函数使用引用而不是实际值作为参数，无需返回值来交还所有权，因为就不曾拥有所有权。
+
+我们将创建一个引用的行为称为 借用（borrowing）。正如现实生活中，
+如果一个人拥有某样东西，你可以从他那里借来。当你使用完毕，必须还回去。
+
+我们将创建一个引用的行为称为 借用（borrowing）。正如现实生活中，
+如果一个人拥有某样东西，你可以从他那里借来。当你使用完毕，必须还回去。
+
+
+如果我们尝试修改借用的变量呢？剧透：这行不通！
+fn main() {
+    let s = String::from("hello");
+
+    change(&s);
+}
+
+fn change(some_string: &String) {
+    some_string.push_str(", world"); //报错
+}
+
+正如变量在默认情况下是不可变的一样，引用也是不可变的。我们无法通过引用修改内容。
+
+可变引用
+
+fn main() {
+    let mut s = String::from("hello");
+
+    change(&mut s);
+}
+
+fn change(some_string: &mut String) {
+    some_string.push_str(", world");
+}
+
+我们通过一个小调整就能修复示例
+
+fn main() {
+    let mut s = String::from("hello");
+
+    change(&mut s);
+}
+
+fn change(some_string: &mut String) {
+    some_string.push_str(", world");
+}
+
+先，我们必须将 s 改为 mut。然后必须在调用 change 函数的地方创建一个可变引用 &mut s，并更新函数签名以接受一个可变引用 some_string: &mut String。这就非常清楚地表明，change 函数将改变它所借用的值。
+
+不过可变引用有一个很大的限制：在同一时间，只能有一个对某一特定数据的可变引用。尝试创建两个可变引用的代码将会失败：
+
+fn main() {
+    let mut s = String::from("hello");
+    let r1 = &mut s;
+    let r2 = &mut s; 报错
+    println!("{}, {}", r1, r2);
+}
+这个报错说这段代码是无效的，因为我们不能在同一时间多次将 s 作为可变变量借用。
+第一个可变的借入在 r1 中，并且必须持续到在 println! 中使用它，但是在那个可变引用的创建和它的使用之间，
+我们又尝试在 r2 中创建另一个可变引用，它借用了与 r1 相同的数据。
+
+防止同一时间对同一数据进行多个可变引用的限制允许可变性，不过是以一种受限制的方式允许。
+新 Rustacean 们经常难以适应这一点，因为大部分语言中变量任何时候都是可变的。
+
+这个限制的好处是 Rust 可以在编译时就避免数据竞争。数据竞争（data race）类似于竞态条件，它由这三个行为造成：
+两个或更多指针同时访问同一数据。
+至少有一个指针被用来写入数据。
+没有同步数据访问的机制。
+
+以上三个行为同时发生才会造成数据竞争，而不是单一行为。
+
+一如既往，可以使用大括号来创建一个新的作用域，以允许拥有多个可变引用，只是不能 同时 拥有：
+fn main() {
+    let mut s = String::from("hello");
+
+    {
+        let r1 = &mut s;
+    } // r1 在这里离开了作用域，所以我们完全可以创建一个新的引用
+
+    let r2 = &mut s;
+}
+
+
+
+类似的规则也存在于同时使用可变与不可变引用中。这些代码会导致一个错误：
+
+fn main() {
+    let mut s = String::from("hello");
+
+    let r1 = &s; // 没问题
+    let r2 = &s; // 没问题
+    let r3 = &mut s; // 大问题
+
+    println!("{}, {}, and {}", r1, r2, r3);
+}
+
+哇哦！我们 也 不能在拥有不可变引用的同时拥有可变引用。
+使用者可不希望不可变引用的值在他们的眼皮底下突然被改变了！
+然而，多个不可变引用是可以的，因为没有哪个只能读取数据的人有能力影响其他人读取到的数据。
+
+
+引用的作用范围:
+注意一个引用的作用域从声明的地方开始一直持续到最后一次使用为止。
+例如，因为最后一次使用不可变引用（println!)，发生在声明可变引用之前，所以如下代码是可以编译的：
+
+fn main() {
+    let mut s = String::from("hello");
+
+    let r1 = &s; // 没问题
+    let r2 = &s; // 没问题
+    println!("{} and {}", r1, r2);
+    // 此位置之后 r1 和 r2 不再使用
+
+    let r3 = &mut s; // 没问题
+    println!("{}", r3);
+}
+
+
+
+悬垂引用（Dangling References）
+
+在具有指针的语言中，很容易通过释放内存时保留指向它的指针而错误地生成一个 悬垂指针（dangling pointer），所谓悬垂指针是其指向的内存可能已经被分配给其它持有者。相比之下，
+在 Rust 中编译器确保引用永远也不会变成悬垂状态：当你拥有一些数据的引用，编译器确保数据不会在其引用之前离开作用域。
+
+fn main() {
+    let reference_to_nothing = dangle();
+}
+
+fn dangle() -> &String { // dangle 返回一个字符串的引用
+    let s = String::from("hello"); // s 是一个新字符串
+    &s // 返回字符串 s 的引用  
+} // 这里 s 离开作用域并被丢弃。其内存被释放。
+  // 危险！ 会报错
+
+
+  引用的规则
+让我们概括一下之前对引用的讨论：
+
+在任意给定时间，要么 只能有一个可变引用，要么 只能有多个不可变引用。
+引用必须总是有效的。
+
+
+切片 Slice 类型
+另一个没有所有权的数据类型是 slice。
+slice 允许你引用集合中一段连续的元素序列，而不用引用整个集合。
+
+
+
+fn first_word(s: &String) -> &str {
+    let bytes = s.as_bytes();
+
+    for (i, &item) in bytes.iter().enumerate() {
+        if item == b' ' {
+            return &s[0..i];
+        }
+    }
+
+    &s[..]
+}
+
+fn main() {}
+
+
+/**
+ 
+Rust 的每个值都有确切的数据类型（data type），该类型告诉 Rust 数据是被指定成哪类数据，从而让 Rust 知道如何使用该数据。在本节中，我们将介绍两种数据类型：标量类型和复合类型。
+
+请记住 Rust 是一种静态类型（statically typed）的语言，
+这意味着它必须在编译期知道所有变量的类型。
+编译器通常可以根据值和使用方式推导出我们想要使用的类型。
+在类型可能是多种情况时，例如在第 2 章“比较猜测的数字和秘密数字”中当我们使用 parse 将String 转换成数值类型时，我们必须加上一个类型标注，如下所示：
+
+let guess: u32 = "42".parse().expect("Not a number!");
+
+
+如果我们在这里不添加类型标注的话，Rust 将显示以下错误，
+意思是编译器需要我们提供更多信息来确定我们到底想用什么类型：
+
+$ cargo build
+   Compiling no_type_annotations v0.1.0 (file:///projects/no_type_annotations)
+error[E0282]: type annotations needed
+ --> src/main.rs:2:9
+  |
+2 |     let guess = "42".parse().expect("Not a number!");
+  |         ^^^^^ consider giving `guess` a type
+
+For more information about this error, try `rustc --explain E0282`.
+error: could not compile `no_type_annotations` due to previous error
+
+
+标量类型
+
+标量（scalar）类型表示单个值。Rust 有 4 个基本的标量类型：整型、浮点型、
+布尔型和字符。你可能从其他语言了解过这些类型。
+下面我们深入了解它们在 Rust 中的用法
+
+
+整数类型
+整数（integer）是没有小数部分的数字。我们在第 2 章使用过一个整数类型（整型），
+即 u32 类型。此类型声明表明它关联的值应该是占用 32 位空间的无符号整型
+（有符号整型以 i 开始，i 是英文单词 integer 的首字母，与之相反的是 u，
+代表无符号 unsigned 类型）。表 3-1 显示了 Rust 中的内置的整数类型。
+我们可以使用这些定义形式中的任何一个来声明整数值的类型。
+
+
+
+长度	有符号类型	无符号类型
+8 位	i8	u8
+16 位	i16	u16
+32 位	i32	u32
+64 位	i64	u64
+128 位	i128	u128
+arch	isize	usize
+
+
+每个定义形式要么是有符号类型要么是无符号类型，且带有一个显式的大小。
+有符号和无符号表示数字能否取负数——也就是说，这个数是否可能是负数（有符号类型），或一直为正而不需要带上符号（无符号类型）。就像在纸上写数字一样：当要强调符号时，数字前面可以带上正号或负号；
+然而，当很明显确定数字为正数时，就不需要加上正号
+
+
+复合类型
+
+
+元组类型
+
+元组是将多种类型的多个值组合到一个复合类型中的一种基本方式。元组的长度是固定的：声明后，它们就无法增长或缩小。
+
+我们通过在小括号内写入以逗号分隔的值列表来创建一个元组。元组中的每个位置都有一个类型，
+并且元组中不同值的类型不要求是相同的。我们在下面示例中添加了可选的类型标注：
+
+数组类型
+将多个值组合在一起的另一种方式就是使用数组（array）。与元组不同，数组的每个元素必须具有相同的类型。与某些其他语言中的数组不同，Rust 中的数组具有固定长度。
+
+当你希望将数据分配到栈（stack）而不是堆（heap）时（我们将在第 4 章中进一步讨论栈和堆），或者当你希望确保始终具有固定数量的元素时，数组特别有用。但它们不像 vector（译注：中文字面翻译为“向量”，在 Rust 中意义为“动态数组，可变数组”）类型那么灵活。vector 类型类似于标准库中提供的集合类型，其大小允许增长或缩小。如果不确定是使用数组还是 vector，那就应该使用一个 vector。第 8 章将详细地讨论 vector。
+
+不过当你明确元素数量不需要改变时，数组会更有用。例如，如果你在程序中使用月份的名称，你很可能希望使用的是数组而不是 vector，因为你知道它始终包含 12 个元素：
+
+
+
+泛型数据类型
+当使用泛型定义函数时，本来在函数签名中指定参数和返回值的类型的地方，
+会改用泛型来表示。采用这种技术，使得代码适应性更强，从而为函数的调用者提供更多的功能
+，同时也避免了代码的重复。
+
+函数中定义泛型
+
+fn largest_i32(list: &[i32]) -> i32 {
+    let mut largest = list[0];
+
+    for &item in list.iter() {
+        if item > largest {
+            largest = item;
+        }
+    }
+
+    largest
+}
+
+fn largest_char(list: &[char]) -> char {
+    let mut largest = list[0];
+
+    for &item in list.iter() {
+        if item > largest {
+            largest = item;
+        }
+    }
+
+    largest
+}
+
+fn main() {
+    let number_list = vec![34, 50, 25, 100, 65];
+
+    let result = largest_i32(&number_list);
+    println!("The largest number is {}", result);
+   assert_eq!(result, 100);
+
+    let char_list = vec!['y', 'm', 'a', 'q'];
+
+    let result = largest_char(&char_list);
+    println!("The largest char is {}", result);
+   assert_eq!(result, 'y');
+}
+
+
+使用泛型合并上面两个 函数
+fn largest<T>(list: &[T])->T{
+     let mut largest = list[0];
+
+    for &item in list.iter() {
+        if item > largest {
+            largest = item;
+        }
+    }
+
+    largest
+}
+
+error[E0369]: binary operation `>` cannot be applied to type `T`
+ --> src/main.rs:5:12
+  |
+5 |         if item > largest {
+  |            ^^^^^^^^^^^^^^
+  |
+  = note: an implementation of `std::cmp::PartialOrd` might be
+   missing for `T`
+注释中提到了 std::cmp::PartialOrd，这是一个 trait。下一部分会讲到 trait。
+不过简单来说，这个错误表明 largest 的函数体不能适用于 T 的所有可能的类型。因为在函数体需要比较 T 类型的值，不过它只能用于我们知道如何排序的类型。为了开启比较功能，标准库中定义的 std::cmp::PartialOrd trait 可以实现类型的比较功能（查看附录 C 获取该 trait 的更多信息）。
+
+标准库中定义的 std::cmp::PartialOrd trait 可以实现类型的比较功能。在
+ “trait 作为参数” 部分会讲解如何指定泛型实现特定的 trait，
+ 不过让我们先探索其他使用泛型参数的方法。
+
+*/
+ * 
+ */
 
 #[test]
 fn Result_Options_test() {
@@ -868,5 +1215,57 @@ fn main() {
         },
     };
 }
+
+
+
+trait：定义共享的行为
+trait 告诉 Rust 编译器某个特定类型拥有可能与其他类型共享的功能。
+可以通过 trait 以一种抽象的方式定义共享的行为。
+可以使用 trait bounds 指定泛型是任何拥有特定行为的类型。
+
+
+一个类型的行为由其可供调用的方法构成。如果可以对不同类型调用相同的方法的话，这些类型就可以共享相同的行为了。trait 定义是一种将方法签名组合起来的方法，目的是定义一个实现某些目的所必需的行为的集合。
+
+例如，这里有多个存放了不同类型和属性文本的结构体：结构体 NewsArticle 用于存放发生于世界各地的新闻故事，而结构体 Tweet 最多只能存放 280 个字符的内容，以及像是否转推或是否是对推友的回复这样的元数据。
+
+我们想要创建一个多媒体聚合库用来显示可能储存在 NewsArticle 或
+ Tweet 实例中的数据的总结。每一个结构体都需要的行为是他们是能够被总结的，
+ 这样的话就可以调用实例的 summarize 方法来请求总结。
+示例 中展示了一个表现这个概念的 Summary trait 的定义：
+
+现在我们定义了 Summary trait，
+接着就可以在多媒体聚合库中需要拥有这个行为的类型上实现它了。
+示例展示了 NewsArticle 结构体上 Summary trait 的一个实现，它使用标题、作者和创建的位置作为 summarize 的返回值。对于 Tweet 结构体，我们选择将 summarize 定义为用户名后跟推文的全部文本作为返回值，
+并假设推文内容已经被限制为 280 字符以内。
+
+
+trait Animal {
+    fn make_sound(&self);
+}
+
+struct Dog;
+struct Cat;
+
+impl Animal for Dog {
+    fn make_sound(&self) {
+        println!("汪汪汪！");
+    }
+}
+
+impl Animal for Cat {
+    fn make_sound(&self) {
+        println!("喵喵喵！");
+    }
+}
+
+fn main() {
+    let dog = Dog;
+    let cat = Cat;
+
+    dog.make_sound();
+    cat.make_sound();
+}
+
+
 
 */
