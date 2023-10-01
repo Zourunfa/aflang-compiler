@@ -89,6 +89,8 @@ fn decl(mut input: String) {
     // 去掉变量前面的空格
     let (remains, _) = whitespace()(input.clone()).unwrap();
     println!("whitespace remains{:?}", remains);
+
+    let (remains, obj) = ident(remains)?;
 }
 
 #[test]
