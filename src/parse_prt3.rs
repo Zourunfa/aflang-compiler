@@ -85,6 +85,67 @@ fn whitespace() -> impl Fn(String) -> ParseResult {
     return any_of(vec![sp, tab, newline]);
 }
 
+fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> ParseResult {
+    return move |mut input: String| {
+        let mut result = Vec::new();
+
+        match parser(input.clone()) {
+            Ok((remains, parsed)) => {
+                input = remains;
+                result.push(parsed)
+            }
+            Err(err) => {
+                return Err(err);
+            }
+        }
+
+        while let Ok((remains, parsed)) = parser(input.clone()) {
+            input = remains;
+            result.push(parsed)
+        }
+
+        return Ok((input.clone(), ParseObj::List(result)));
+    };
+}
+fn parse_chars(chars: &str) -> impl Fn(String) -> ParseResult {
+    let parsers = chars.chars().map(|c| parse_chars(c).collect());
+
+    return any_of(parsers);
+}
+
+fn ident(input: String) -> ParseResult {
+    match one_or_more(parse_chars(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_",
+    ))(input)
+    {
+        Ok((remains, ParseObj::List(chars_parse_objects))) => {
+            let mut name = String::new();
+
+            for po in chars_parse_objects {
+                match po {
+                    ParseObj::Char(c) => name.push(c),
+                    _ => {
+                        return Err(ParseErr::Unexpected(
+                            " a char".to_string(),
+                            format!("{:?}", po),
+                            0,
+                        ))
+                    }
+                }
+            }
+            return Ok((remains, ParseObj::Ident(name)));
+        }
+        Ok((_, obj)) => {
+            return Err(ParseErr::Unexpected(
+                "list of chars".to_string(),
+                format!("{:?}", obj),
+                0,
+            ))
+        }
+        Err(err) => Err(err),
+    }
+}
+
 fn decl(mut input: String) {
     // 去掉变量前面的空格
     let (remains, _) = whitespace()(input.clone()).unwrap();
