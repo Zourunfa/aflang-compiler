@@ -120,7 +120,7 @@ fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> Par
         }
         return Ok((input.clone(), ParseObj::List(result)));
     };
-}
+} 
 fn parse_chars(chars: &str) -> impl Fn(String) -> ParseResult {
     let parsers = chars.chars().map(|c| parse_char(c)).collect();
 

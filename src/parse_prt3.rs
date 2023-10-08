@@ -108,7 +108,7 @@ fn one_or_more(parser: impl Fn(String) -> ParseResult) -> impl Fn(String) -> Par
     };
 }
 fn parse_chars(chars: &str) -> impl Fn(String) -> ParseResult {
-    let parsers = chars.chars().map(|c| parse_chars(c).collect());
+    let parsers = chars.chars().map(|c| parse_char(c)).collect();
 
     return any_of(parsers);
 }
@@ -151,7 +151,8 @@ fn decl(mut input: String) {
     let (remains, _) = whitespace()(input.clone()).unwrap();
     println!("whitespace remains{:?}", remains);
 
-    let (remains, obj) = ident(remains)?;
+    let (remains, obj) = ident(remains).unwrap();
+    println!("ident remains{:?}", remains);
 }
 
 #[test]
